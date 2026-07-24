@@ -70,10 +70,13 @@ export function SingleAuthScreen({ initialMode = 'signin' }: { initialMode?: Aut
   useEffect(() => {
     if (googleResponse?.type === 'success') {
       const token = googleResponse.authentication?.accessToken ?? (googleResponse as any).params?.access_token;
-      if (token) handleGoogleToken(token);
-      else handleGoogleToken('mock_google_token');
-    } else if (googleResponse && googleResponse.type !== 'dismiss') {
-      handleGoogleToken('mock_google_token');
+      if (token) {
+        handleGoogleToken(token);
+      } else {
+        setGeneralError('Google sign-in completed but no access token was returned.');
+      }
+    } else if (googleResponse && googleResponse.type === 'error') {
+      setGeneralError('Google sign-in error: ' + (googleResponse.error?.message ?? 'Access blocked or cancelled'));
     }
   }, [googleResponse]);
 
@@ -158,35 +161,29 @@ export function SingleAuthScreen({ initialMode = 'signin' }: { initialMode?: Aut
       await login(data.token, data.user);
       showToast(`Welcome to Drip Deck, @${data.user.username}! 🚀`, 'success');
       router.replace('/(tabs)');
-    } catch {
-      const mockUser = {
-        id: `usr_g_${Date.now()}`,
-        email: 'google_user@drip.app',
-        username: 'google_creator',
-        displayName: 'Google Creator',
-        avatar: `https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600`,
-        bio: 'Google fashion creator ✨',
-        followersCount: 0,
-        followingCount: 0,
-        wardrobeCount: 0,
-        isVerified: true,
-        isFollowing: false,
-        createdAt: new Date().toISOString(),
-      };
-      await login(`mock-token-${Date.now()}`, mockUser);
-      router.replace('/(tabs)');
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || 'Google authentication server error. Please try again.';
+      setGeneralError(msg);
+      showToast(msg, 'error');
     } finally {
       setLoading(false);
     }
   }
 
   function handleGooglePress() {
+    if (!GOOGLE_WEB_CLIENT_ID) {
+      setGeneralError('Google Client ID is missing. Please configure EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID in your .env file.');
+      showToast('Google Client ID is missing in .env', 'error');
+      return;
+    }
     if (request) {
-      promptGoogleAsync().catch(() => {
-        handleGoogleToken('mock_google_token');
+      promptGoogleAsync().catch((err: any) => {
+        const msg = 'Could not open Google prompt: ' + (err?.message || 'Unknown error');
+        setGeneralError(msg);
+        showToast(msg, 'error');
       });
     } else {
-      handleGoogleToken('mock_google_token');
+      setGeneralError('Google Auth is initializing. Please try again in a moment.');
     }
   }
 

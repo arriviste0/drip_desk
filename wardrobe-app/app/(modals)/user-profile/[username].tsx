@@ -2,13 +2,11 @@ import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
-import { CoatHanger, Heart, Sparkle, TShirt } from 'phosphor-react-native';
 import { ProfileHeader } from '../../../components/profile/ProfileHeader';
 import { ProfilePostGrid } from '../../../components/profile/ProfilePostGrid';
 import { UserListModal } from '../../../components/profile/UserListModal';
-import { StatsStrip } from '../../../components/profile/StatsStrip';
-import { NBButton, NBBadge } from '../../../components/ui';
-import { useUserProfile, useFollowMutation, useProfileStats, useUserPosts, FollowListType } from '../../../hooks/useProfile';
+import { NBButton } from '../../../components/ui';
+import { useUserProfile, useFollowMutation, useUserPosts, FollowListType } from '../../../hooks/useProfile';
 import { useCurrentUser } from '../../../hooks/useAuth';
 import { colors, radii } from '../../../lib/theme';
 import { User } from '../../../types/user';
@@ -77,7 +75,6 @@ export default function UserProfileModal() {
   const [activeTab, setActiveTab] = useState<ProfileTab>('posts');
 
   const { data: serverUser, isLoading } = useUserProfile(username);
-  const { data: stats } = useProfileStats(username);
   const { data: serverPosts } = useUserPosts(username);
   const followMutation = useFollowMutation(username ?? '');
 
@@ -120,14 +117,6 @@ export default function UserProfileModal() {
         onFollowersPress={() => setListType('followers')}
         onFollowingPress={() => setListType('following')}
         actionSlot={followButton}
-      />
-
-      <StatsStrip
-        stats={{
-          posts: creator ? creator.looks.length : (stats?.posts ?? 2),
-          outfits: creator ? creator.looks.length : (stats?.outfits ?? 2),
-          wardrobeValue: creator ? creator.items.reduce((s, i) => s + (i.purchasePrice || 0), 0) : (stats?.wardrobeValue ?? 18000),
-        }}
       />
 
       {/* Profile Sub-Tabs Navigation Bar */}

@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Expo & Build
+.expo/
+dist/
+web-build/
+*.tsbuildinfo
+
+# Local Environment & Data
+.env
+.env*.local
+*.env
+server/.env
+server/.data/
+server/uploads/
+
+# OS & Debug
+.DS_Store
+npm-debug.*
+yarn-debug.*
+yarn-error.*

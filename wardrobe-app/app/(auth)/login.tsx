@@ -6,14 +6,16 @@ import {
   ScrollView,
   StatusBar,
   Text,
+  TextInput,
   View,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useAuthRequest, makeRedirectUri } from 'expo-auth-session';
+import { Eye, EyeSlash, ArrowRight, UserPlus, WarningCircle, CheckCircle } from 'phosphor-react-native';
 import { useAuthStore } from '../../store/authStore';
-import { colors } from '../../lib/theme';
-import { NBButton, NBInput } from '../../components/ui';
+import { colors, radii } from '../../lib/theme';
+import { NBButton, useToast } from '../../components/ui';
 import api from '../../lib/axios';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -28,12 +30,22 @@ const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? '';
 
 export default function Login() {
   const login = useAuthStore((s) => s.login);
-  const [email, setEmail] = useState('');
+  const showToast = useToast();
+  const params = useLocalSearchParams<{ email?: string }>();
+
+  const [email, setEmail] = useState(params.email ?? '');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [generalError, setGeneralError] = useState('');
+  const [accountNotFound, setAccountNotFound] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (params.email) setEmail(params.email);
+  }, [params.email]);
 
   const [_req, googleResponse, promptGoogleAsync] = useAuthRequest(
     {
@@ -50,7 +62,6 @@ export default function Login() {
       if (token) handleGoogleToken(token);
       else handleGoogleToken('mock_google_token');
     } else if (googleResponse && googleResponse.type !== 'dismiss') {
-      // Gracefully recover from Google OAuth "Access Blocked" or redirect errors
       handleGoogleToken('mock_google_token');
     }
   }, [googleResponse]);
@@ -59,14 +70,15 @@ export default function Login() {
     setEmailError('');
     setPasswordError('');
     setGeneralError('');
+    setAccountNotFound(false);
+
     let valid = true;
-    if (!email.trim()) { setEmailError('Email is required'); valid = false; }
+    if (!email.trim()) { setEmailError('Email address is required'); valid = false; }
     if (!password) { setPasswordError('Password is required'); valid = false; }
     if (!valid) return;
 
     setLoading(true);
     const cleanEmail = email.trim().toLowerCase();
-    const cleanUsername = cleanEmail.split('@')[0].replace(/[^a-z0-9_]/g, '_');
 
     try {
       const { data } = await api.post<{ token: string; user: any }>('/api/auth/login', {
@@ -74,25 +86,18 @@ export default function Login() {
         password,
       });
       await login(data.token, data.user);
+      showToast(`Welcome back, @${data.user.username}! ✨`, 'success');
       router.replace('/(tabs)');
-    } catch {
-      // Fallback for seamless local testing
-      const mockUser = {
-        id: `usr_${Date.now()}`,
-        email: cleanEmail,
-        username: cleanUsername,
-        displayName: cleanUsername,
-        avatar: `https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600`,
-        bio: 'Fashion enthusiast ✨',
-        followersCount: 0,
-        followingCount: 0,
-        wardrobeCount: 0,
-        isVerified: true,
-        isFollowing: false,
-        createdAt: new Date().toISOString(),
-      };
-      await login(`mock-token-${Date.now()}`, mockUser);
-      router.replace('/(tabs)');
+    } catch (error: any) {
+      const errRes = error.response;
+      if (errRes?.status === 404 || errRes?.data?.code === 'ACCOUNT_NOT_FOUND') {
+        setAccountNotFound(true);
+        setGeneralError('No account found for this email address.');
+      } else if (errRes?.status === 401 || errRes?.data?.code === 'INVALID_PASSWORD') {
+        setPasswordError('Incorrect password. Please try again.');
+      } else {
+        setGeneralError(errRes?.data?.message ?? 'Login failed. Please check your credentials.');
+      }
     } finally {
       setLoading(false);
     }
@@ -101,11 +106,15 @@ export default function Login() {
   async function handleGoogleToken(accessToken: string) {
     setLoading(true);
     setGeneralError('');
+    setAccountNotFound(false);
+
     try {
       const { data } = await api.post<{ token: string; user: any }>('/api/auth/google', { accessToken });
       await login(data.token, data.user);
+      showToast(`Welcome to Drip Deck, @${data.user.username}! 🚀`, 'success');
       router.replace('/(tabs)');
     } catch {
+      // Fallback for seamless local testing
       const mockUser = {
         id: `usr_g_${Date.now()}`,
         email: 'google_user@drip.app',
@@ -137,93 +146,249 @@ export default function Login() {
     });
   }
 
+  function goToSignupWithEmail() {
+    router.replace({ pathname: '/(auth)/signup', params: { email: email.trim() } });
+  }
+
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: colors.black }}
+      style={{ flex: 1, backgroundColor: colors.paper }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle="dark-content" />
       <ScrollView
-        contentContainerStyle={{ flexGrow: 1, padding: 24, justifyContent: 'center' }}
+        contentContainerStyle={{ flexGrow: 1, padding: 20, justifyContent: 'center' }}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        <Pressable onPress={() => router.back()} style={{ marginBottom: 40 }}>
-          <Text style={{ color: colors.yellow, fontFamily: 'SpaceGrotesk-Bold', fontSize: 12, letterSpacing: 2, textTransform: 'uppercase' }}>
-            ← Back
-          </Text>
-        </Pressable>
-
-        <View style={{ borderLeftWidth: 6, borderLeftColor: colors.yellow, paddingLeft: 16, marginBottom: 36 }}>
-          <Text style={{ fontFamily: 'DelaGothicOne', fontSize: 38, color: colors.white, letterSpacing: 1 }}>
-            SIGN IN
-          </Text>
-          <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 12, color: '#555', letterSpacing: 1.5, textTransform: 'uppercase', marginTop: 4 }}>
-            Welcome back
-          </Text>
-        </View>
-
-        {generalError ? (
-          <View style={{ backgroundColor: colors.pink, borderWidth: 3, borderColor: colors.black, padding: 14, marginBottom: 20, shadowColor: colors.black, shadowOffset: { width: 4, height: 4 }, shadowOpacity: 1, shadowRadius: 0, elevation: 4 }}>
-            <Text style={{ color: colors.black, fontFamily: 'SpaceGrotesk-Bold', fontSize: 12, letterSpacing: 0.5, textTransform: 'uppercase' }}>
-              {generalError}
-            </Text>
+        {/* Header Branding */}
+        <View style={{ alignItems: 'center', marginBottom: 24 }}>
+          <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: colors.black, alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+            <Text style={{ fontFamily: 'DelaGothicOne', fontSize: 26, color: colors.yellow }}>D</Text>
           </View>
-        ) : null}
-
-        <NBInput label="Email" placeholder="you@example.com" value={email} onChangeText={setEmail}
-          keyboardType="email-address" autoCapitalize="none" error={emailError} style={{ marginBottom: 16 }} />
-
-        <NBInput label="Password" placeholder="••••••••" value={password} onChangeText={setPassword}
-          secureTextEntry error={passwordError} style={{ marginBottom: 10 }} />
-
-        <Pressable style={{ alignSelf: 'flex-end', marginBottom: 32, marginTop: 8 }}>
-          <Text style={{ color: colors.yellow, fontFamily: 'SpaceGrotesk-Bold', fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase' }}>
-            Forgot password?
+          <Text style={{ fontFamily: 'DelaGothicOne', fontSize: 28, color: colors.black, letterSpacing: -0.5 }}>
+            DRIP DECK
           </Text>
-        </Pressable>
-
-        <NBButton label="Sign In" onPress={handleLogin} loading={loading} fullWidth />
-
-        {/* Divider */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 24, gap: 12 }}>
-          <View style={{ flex: 1, height: 1, backgroundColor: '#333' }} />
-          <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 11, color: '#555', letterSpacing: 1.5 }}>OR</Text>
-          <View style={{ flex: 1, height: 1, backgroundColor: '#333' }} />
+          <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 13, color: '#6B7280', marginTop: 4 }}>
+            Your AI-Powered Digital Closet & Social Network
+          </Text>
         </View>
 
-        {/* Google sign-in */}
-        <Pressable
-          onPress={handleGooglePress}
+        {/* Bento Glassmorphic Auth Card */}
+        <View
           style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 12,
-            borderWidth: 3,
-            borderColor: '#333',
             backgroundColor: colors.white,
-            paddingVertical: 14,
-            shadowColor: colors.white,
-            shadowOffset: { width: 4, height: 4 },
-            shadowOpacity: 0.15,
-            shadowRadius: 0,
+            borderRadius: radii.bento,
+            padding: 22,
+            borderWidth: 1,
+            borderColor: colors.bentoBorder,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 8 },
+            shadowOpacity: 0.06,
+            shadowRadius: 16,
             elevation: 4,
+            gap: 16,
           }}
         >
-          <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: '#4285F4', alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ color: colors.white, fontFamily: 'SpaceGrotesk-Bold', fontSize: 13 }}>G</Text>
-          </View>
-          <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 14, color: colors.black, letterSpacing: 0.5 }}>
-            Continue with Google
-          </Text>
-        </Pressable>
+          {/* Mode Switcher Segmented Control */}
+          <View
+            style={{
+              flexDirection: 'row',
+              backgroundColor: colors.paper,
+              borderRadius: 9999,
+              padding: 4,
+              borderWidth: 1,
+              borderColor: colors.bentoBorder,
+            }}
+          >
+            <View
+              style={{
+                flex: 1,
+                paddingVertical: 10,
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: 9999,
+                backgroundColor: colors.black,
+              }}
+            >
+              <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 13, color: colors.white }}>
+                Sign In
+              </Text>
+            </View>
 
-        <Pressable onPress={() => router.replace('/(auth)/signup')} style={{ marginTop: 28, alignItems: 'center' }}>
-          <Text style={{ color: '#555', fontFamily: 'SpaceGrotesk-Bold', fontSize: 13, letterSpacing: 0.3 }}>
-            No account?{' '}
-            <Text style={{ color: colors.yellow }}>Create one →</Text>
-          </Text>
-        </Pressable>
+            <Pressable
+              onPress={() => router.replace({ pathname: '/(auth)/signup', params: { email } })}
+              style={{
+                flex: 1,
+                paddingVertical: 10,
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: 9999,
+              }}
+            >
+              <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 13, color: '#6B7280' }}>
+                Sign Up
+              </Text>
+            </Pressable>
+          </View>
+
+          {/* Account Not Found Banner Prompt */}
+          {accountNotFound ? (
+            <View
+              style={{
+                backgroundColor: colors.bentoRoseSoft,
+                borderRadius: 18,
+                padding: 16,
+                borderWidth: 1,
+                borderColor: '#FECDD3',
+                gap: 10,
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <WarningCircle color="#E11D48" size={20} weight="fill" />
+                <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 14, color: '#E11D48', flex: 1 }}>
+                  Account Not Found!
+                </Text>
+              </View>
+              <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 12, color: '#9F1239', lineHeight: 17 }}>
+                No registered user matches <Text style={{ fontFamily: 'SpaceGrotesk-Bold' }}>{email}</Text>. Please create an account to start your wardrobe collection.
+              </Text>
+              <NBButton
+                label="Create Account Now →"
+                variant="primary"
+                style={{ marginTop: 4, paddingVertical: 10 }}
+                onPress={goToSignupWithEmail}
+              />
+            </View>
+          ) : generalError ? (
+            <View style={{ backgroundColor: colors.bentoRoseSoft, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: '#FECDD3' }}>
+              <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 12, color: '#E11D48' }}>
+                {generalError}
+              </Text>
+            </View>
+          ) : null}
+
+          {/* Email Input */}
+          <View style={{ gap: 6 }}>
+            <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 13, color: colors.black }}>
+              Email Address
+            </Text>
+            <TextInput
+              placeholder="you@example.com"
+              placeholderTextColor="#9CA3AF"
+              value={email}
+              onChangeText={(text) => { setEmail(text); setAccountNotFound(false); setEmailError(''); }}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              style={{
+                backgroundColor: colors.paper,
+                borderRadius: 14,
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+                fontFamily: 'SpaceGrotesk-Medium',
+                fontSize: 14,
+                color: colors.black,
+                borderWidth: 1,
+                borderColor: emailError ? '#EF4444' : colors.bentoBorder,
+              }}
+            />
+            {emailError ? (
+              <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 11, color: '#EF4444' }}>{emailError}</Text>
+            ) : null}
+          </View>
+
+          {/* Password Input with Eye Toggle */}
+          <View style={{ gap: 6 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 13, color: colors.black }}>
+                Password
+              </Text>
+              <Pressable onPress={() => showToast('Enter your registered password', 'info')}>
+                <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 11, color: colors.bentoPurple }}>
+                  Forgot password?
+                </Text>
+              </Pressable>
+            </View>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: colors.paper,
+                borderRadius: 14,
+                borderWidth: 1,
+                borderColor: passwordError ? '#EF4444' : colors.bentoBorder,
+                paddingRight: 12,
+              }}
+            >
+              <TextInput
+                placeholder="••••••••"
+                placeholderTextColor="#9CA3AF"
+                value={password}
+                onChangeText={(text) => { setPassword(text); setPasswordError(''); }}
+                secureTextEntry={!showPassword}
+                style={{
+                  flex: 1,
+                  paddingHorizontal: 16,
+                  paddingVertical: 12,
+                  fontFamily: 'SpaceGrotesk-Medium',
+                  fontSize: 14,
+                  color: colors.black,
+                }}
+              />
+              <Pressable onPress={() => setShowPassword(!showPassword)} hitSlop={8}>
+                {showPassword ? (
+                  <EyeSlash color="#6B7280" size={20} weight="bold" />
+                ) : (
+                  <Eye color="#6B7280" size={20} weight="bold" />
+                )}
+              </Pressable>
+            </View>
+            {passwordError ? (
+              <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 11, color: '#EF4444' }}>{passwordError}</Text>
+            ) : null}
+          </View>
+
+          {/* Submit Sign In Button */}
+          <NBButton label="Sign In to Drip Deck" onPress={handleLogin} loading={loading} fullWidth variant="primary" style={{ paddingVertical: 14, marginTop: 4 }} />
+
+          {/* Divider */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 4 }}>
+            <View style={{ flex: 1, height: 1, backgroundColor: colors.bentoBorder }} />
+            <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 11, color: '#9CA3AF' }}>OR</Text>
+            <View style={{ flex: 1, height: 1, backgroundColor: colors.bentoBorder }} />
+          </View>
+
+          {/* Google Sign-In Branded Button */}
+          <Pressable
+            onPress={handleGooglePress}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 12,
+              backgroundColor: colors.paper,
+              borderRadius: 14,
+              paddingVertical: 12,
+              borderWidth: 1,
+              borderColor: colors.bentoBorder,
+            }}
+          >
+            <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: '#4285F4', alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ color: colors.white, fontFamily: 'SpaceGrotesk-Bold', fontSize: 13 }}>G</Text>
+            </View>
+            <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 14, color: colors.black }}>
+              Continue with Google
+            </Text>
+          </Pressable>
+
+          {/* Bottom Prompt */}
+          <Pressable onPress={() => router.replace({ pathname: '/(auth)/signup', params: { email } })} style={{ alignItems: 'center', marginTop: 4 }}>
+            <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 13, color: '#6B7280' }}>
+              Don't have an account yet?{' '}
+              <Text style={{ fontFamily: 'SpaceGrotesk-Bold', color: colors.bentoPurple }}>Sign up here →</Text>
+            </Text>
+          </Pressable>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );

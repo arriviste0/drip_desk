@@ -183,7 +183,7 @@ const server = http.createServer(async (request, response) => {
       if (password.length < 8) return sendJson(response, 400, { message: 'Password must be at least 8 characters' });
       const db = await getDb();
       if (await db.collection('users').findOne({ email })) {
-        return sendJson(response, 409, { message: 'An account with this email already exists' });
+        return sendJson(response, 409, { code: 'ACCOUNT_EXISTS', message: 'An account with this email already exists. Please sign in instead.' });
       }
       const username = email.split('@')[0].replace(/[^a-z0-9_]/g, '_').toLowerCase().slice(0, 30);
       const safeUsername = await (async (base) => {
@@ -216,8 +216,11 @@ const server = http.createServer(async (request, response) => {
       if (!email || !password) return sendJson(response, 400, { message: 'Email and password are required' });
       const db = await getDb();
       const user = await db.collection('users').findOne({ email });
-      if (!user || !user.password || !verifyPassword(password, user.password)) {
-        return sendJson(response, 401, { message: 'Incorrect email or password' });
+      if (!user) {
+        return sendJson(response, 404, { code: 'ACCOUNT_NOT_FOUND', message: 'No account found with this email. Please create an account first.' });
+      }
+      if (!user.password || !verifyPassword(password, user.password)) {
+        return sendJson(response, 401, { code: 'INVALID_PASSWORD', message: 'Incorrect password. Please try again.' });
       }
       const token = signToken({ userId: user._id.toString() });
       return sendJson(response, 200, { token, user: toUser(user) });

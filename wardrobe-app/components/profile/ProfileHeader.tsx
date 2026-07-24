@@ -60,7 +60,7 @@ export function ProfileHeader({
         {topRight}
       </View>
 
-      {/* Unified Bento Hero Profile Card */}
+      {/* Unified Minimalist Bento Hero Profile Card */}
       <View
         style={{
           backgroundColor: colors.white,
@@ -77,7 +77,7 @@ export function ProfileHeader({
       >
         {/* Profile Header Row: Avatar + Name + Handle */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-          {/* Circular Bento Avatar */}
+          {/* Circular Avatar */}
           <View
             style={{
               width: 76,
@@ -89,9 +89,9 @@ export function ProfileHeader({
               overflow: 'hidden',
               shadowColor: '#000',
               shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.1,
+              shadowOpacity: 0.08,
               shadowRadius: 8,
-              elevation: 4,
+              elevation: 3,
             }}
           >
             <Image
@@ -170,75 +170,48 @@ export function ProfileHeader({
         {/* Action Button (e.g. Follow / Edit Profile) */}
         {actionSlot ? <View style={{ marginTop: 12 }}>{actionSlot}</View> : null}
 
-        {/* Integrated Stats Bar directly inside Upper Hero Card */}
+        {/* Minimalist Instagram-Style Stats Strip */}
         <View
           style={{
             flexDirection: 'row',
             alignItems: 'center',
+            justifyContent: 'space-around',
             marginTop: 16,
             paddingTop: 14,
             borderTopWidth: 1,
             borderTopColor: colors.bentoBorder,
-            gap: 8,
           }}
         >
-          {/* Followers Stat Block */}
-          <Pressable
-            onPress={onFollowersPress}
-            style={{
-              flex: 1,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: colors.bentoMintLight,
-              paddingVertical: 10,
-              borderRadius: 14,
-            }}
-          >
-            <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 18, color: colors.bentoMint }}>
+          {/* Followers Stat */}
+          <Pressable onPress={onFollowersPress} style={{ flex: 1, alignItems: 'center' }}>
+            <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 18, color: colors.black }}>
               {user.followersCount ?? 0}
             </Text>
-            <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 10, color: colors.bentoMint, marginTop: 1, opacity: 0.9 }}>
+            <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 12, color: '#6B7280', marginTop: 2 }}>
               Followers
             </Text>
           </Pressable>
 
-          {/* Following Stat Block */}
-          <Pressable
-            onPress={onFollowingPress}
-            style={{
-              flex: 1,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: colors.bentoLavender,
-              paddingVertical: 10,
-              borderRadius: 14,
-            }}
-          >
-            <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 18, color: colors.bentoPurple }}>
+          <View style={{ width: 1, height: 26, backgroundColor: '#E5E7EB' }} />
+
+          {/* Following Stat */}
+          <Pressable onPress={onFollowingPress} style={{ flex: 1, alignItems: 'center' }}>
+            <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 18, color: colors.black }}>
               {user.followingCount ?? 0}
             </Text>
-            <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 10, color: colors.bentoPurple, marginTop: 1, opacity: 0.9 }}>
+            <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 12, color: '#6B7280', marginTop: 2 }}>
               Following
             </Text>
           </Pressable>
 
-          {/* Items Stat Block */}
-          <Pressable
-            onPress={onItemsPress}
-            disabled={!onItemsPress}
-            style={{
-              flex: 1,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: colors.bentoYellow,
-              paddingVertical: 10,
-              borderRadius: 14,
-            }}
-          >
-            <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 18, color: '#B45309' }}>
+          <View style={{ width: 1, height: 26, backgroundColor: '#E5E7EB' }} />
+
+          {/* Items Stat */}
+          <Pressable onPress={onItemsPress} disabled={!onItemsPress} style={{ flex: 1, alignItems: 'center' }}>
+            <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 18, color: colors.black }}>
               {user.wardrobeCount ?? 0}
             </Text>
-            <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 10, color: '#B45309', marginTop: 1, opacity: 0.9 }}>
+            <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 12, color: '#6B7280', marginTop: 2 }}>
               Items
             </Text>
           </Pressable>

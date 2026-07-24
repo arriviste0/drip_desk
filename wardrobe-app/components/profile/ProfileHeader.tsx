@@ -16,63 +16,6 @@ interface ProfileHeaderProps {
   actionSlot?: React.ReactNode;
 }
 
-function MiniBentoStat({
-  value,
-  label,
-  onPress,
-  bg,
-  textColor,
-}: {
-  value: number;
-  label: string;
-  onPress?: () => void;
-  bg: string;
-  textColor: string;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={!onPress}
-      style={{
-        flex: 1,
-        paddingVertical: 14,
-        paddingHorizontal: 8,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderRadius: radii.bento,
-        backgroundColor: bg,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.04,
-        shadowRadius: 8,
-        elevation: 2,
-      }}
-    >
-      <Text
-        style={{
-          fontFamily: 'SpaceGrotesk-Bold',
-          fontSize: 22,
-          color: textColor,
-          lineHeight: 26,
-        }}
-      >
-        {value ?? 0}
-      </Text>
-      <Text
-        style={{
-          fontFamily: 'SpaceGrotesk-Medium',
-          fontSize: 10,
-          color: textColor,
-          marginTop: 2,
-          opacity: 0.85,
-        }}
-      >
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
 export function ProfileHeader({
   user,
   onFollowersPress,
@@ -85,13 +28,13 @@ export function ProfileHeader({
   const { top } = useSafeAreaInsets();
 
   return (
-    <View style={{ backgroundColor: colors.paper, paddingHorizontal: 14, paddingTop: top + 10, paddingBottom: 12 }}>
+    <View style={{ backgroundColor: colors.paper, paddingHorizontal: 14, paddingTop: top + 10, paddingBottom: 8 }}>
       {/* Top Bar Navigation */}
       <View
         style={{
           flexDirection: 'row',
           alignItems: 'center',
-          marginBottom: 14,
+          marginBottom: 12,
         }}
       >
         {onBack ? (
@@ -117,7 +60,7 @@ export function ProfileHeader({
         {topRight}
       </View>
 
-      {/* Main Bento Hero Profile Box */}
+      {/* Unified Bento Hero Profile Card */}
       <View
         style={{
           backgroundColor: colors.white,
@@ -128,18 +71,18 @@ export function ProfileHeader({
           shadowColor: '#000',
           shadowOffset: { width: 0, height: 6 },
           shadowOpacity: 0.05,
-          shadowRadius: 12,
+          shadowRadius: 14,
           elevation: 3,
-          marginBottom: 12,
         }}
       >
+        {/* Profile Header Row: Avatar + Name + Handle */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
           {/* Circular Bento Avatar */}
           <View
             style={{
-              width: 80,
-              height: 80,
-              borderRadius: 40,
+              width: 76,
+              height: 76,
+              borderRadius: 38,
               borderWidth: 3,
               borderColor: colors.white,
               backgroundColor: colors.bentoPaper ?? '#F3F4F6',
@@ -159,7 +102,7 @@ export function ProfileHeader({
             />
           </View>
 
-          {/* Details */}
+          {/* User Details */}
           <View style={{ flex: 1 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
               <Text
@@ -167,7 +110,7 @@ export function ProfileHeader({
                   fontFamily: 'SpaceGrotesk-Bold',
                   fontSize: 20,
                   color: colors.black,
-                  letterSpacing: -0.3,
+                  letterSpacing: -0.4,
                 }}
               >
                 {user.displayName ?? user.username}
@@ -209,7 +152,7 @@ export function ProfileHeader({
           </View>
         </View>
 
-        {/* Bio */}
+        {/* Bio Text */}
         {user.bio ? (
           <Text
             style={{
@@ -217,39 +160,89 @@ export function ProfileHeader({
               fontSize: 13,
               color: '#4B5563',
               lineHeight: 19,
-              marginTop: 14,
+              marginTop: 12,
             }}
           >
             {user.bio}
           </Text>
         ) : null}
 
-        {actionSlot ? <View style={{ marginTop: 14 }}>{actionSlot}</View> : null}
-      </View>
+        {/* Action Button (e.g. Follow / Edit Profile) */}
+        {actionSlot ? <View style={{ marginTop: 12 }}>{actionSlot}</View> : null}
 
-      {/* Bento Stats Row — Distinct Pastel Color Blocks */}
-      <View style={{ flexDirection: 'row', gap: 10 }}>
-        <MiniBentoStat
-          value={user.followersCount}
-          label="Followers"
-          onPress={onFollowersPress}
-          bg={colors.bentoMintLight}
-          textColor={colors.bentoMint}
-        />
-        <MiniBentoStat
-          value={user.followingCount}
-          label="Following"
-          onPress={onFollowingPress}
-          bg={colors.bentoLavender}
-          textColor={colors.bentoPurple}
-        />
-        <MiniBentoStat
-          value={user.wardrobeCount}
-          label="Items"
-          onPress={onItemsPress}
-          bg={colors.bentoYellow}
-          textColor="#B45309"
-        />
+        {/* Integrated Stats Bar directly inside Upper Hero Card */}
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginTop: 16,
+            paddingTop: 14,
+            borderTopWidth: 1,
+            borderTopColor: colors.bentoBorder,
+            gap: 8,
+          }}
+        >
+          {/* Followers Stat Block */}
+          <Pressable
+            onPress={onFollowersPress}
+            style={{
+              flex: 1,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: colors.bentoMintLight,
+              paddingVertical: 10,
+              borderRadius: 14,
+            }}
+          >
+            <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 18, color: colors.bentoMint }}>
+              {user.followersCount ?? 0}
+            </Text>
+            <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 10, color: colors.bentoMint, marginTop: 1, opacity: 0.9 }}>
+              Followers
+            </Text>
+          </Pressable>
+
+          {/* Following Stat Block */}
+          <Pressable
+            onPress={onFollowingPress}
+            style={{
+              flex: 1,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: colors.bentoLavender,
+              paddingVertical: 10,
+              borderRadius: 14,
+            }}
+          >
+            <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 18, color: colors.bentoPurple }}>
+              {user.followingCount ?? 0}
+            </Text>
+            <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 10, color: colors.bentoPurple, marginTop: 1, opacity: 0.9 }}>
+              Following
+            </Text>
+          </Pressable>
+
+          {/* Items Stat Block */}
+          <Pressable
+            onPress={onItemsPress}
+            disabled={!onItemsPress}
+            style={{
+              flex: 1,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: colors.bentoYellow,
+              paddingVertical: 10,
+              borderRadius: 14,
+            }}
+          >
+            <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 18, color: '#B45309' }}>
+              {user.wardrobeCount ?? 0}
+            </Text>
+            <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 10, color: '#B45309', marginTop: 1, opacity: 0.9 }}>
+              Items
+            </Text>
+          </Pressable>
+        </View>
       </View>
     </View>
   );

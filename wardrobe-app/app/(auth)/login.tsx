@@ -58,10 +58,13 @@ export function SingleAuthScreen({ initialMode = 'signin' }: { initialMode?: Aut
     setPasswordError('');
   }
 
+  const fallbackClientId = GOOGLE_WEB_CLIENT_ID || 'demo_google_client_id';
+
   const [request, googleResponse, promptGoogleAsync] = Google.useAuthRequest({
-    webClientId: GOOGLE_WEB_CLIENT_ID || undefined,
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || undefined,
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || undefined,
+    clientId: fallbackClientId,
+    webClientId: GOOGLE_WEB_CLIENT_ID || fallbackClientId,
+    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || fallbackClientId,
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || fallbackClientId,
   });
 
   useEffect(() => {

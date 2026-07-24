@@ -82,11 +82,7 @@ function HomeHeader() {
         const { data } = await api.get<StoryUser[]>('/api/users/trending');
         return data;
       } catch {
-        return [
-          { id: '1', username: 'nova_fits', avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600' },
-          { id: '2', username: 'chloe_styles', avatarUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?q=80&w=600' },
-          { id: '3', username: 'alex_drip', avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=600' },
-        ];
+        return [];
       }
     },
   });

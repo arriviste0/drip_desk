@@ -80,40 +80,9 @@ function makeUser(id, username, displayName, verified = false) {
   };
 }
 
-// Mutable creator profiles for nova_fits and chloe_styles
-let CREATORS = [
-  {
-    id: 'p1',
-    username: 'nova_fits',
-    displayName: 'Nova Vance',
-    email: 'nova@drip.app',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600',
-    bio: 'Streetwear & Oversized Aesthetics 🖤 | Tokyo & NYC Style',
-    followersCount: 4820,
-    followingCount: 310,
-    wardrobeCount: 8,
-    isVerified: true,
-    isFollowing: true,
-    createdAt: '2024-01-01T00:00:00.000Z',
-  },
-  {
-    id: 'p2',
-    username: 'chloe_styles',
-    displayName: 'Chloe Chen',
-    email: 'chloe@drip.app',
-    avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?q=80&w=600',
-    bio: 'Minimalist Pastel & Clean Girl Looks ✨ | Capsule Wardrobe',
-    followersCount: 6210,
-    followingCount: 180,
-    wardrobeCount: 6,
-    isVerified: true,
-    isFollowing: true,
-    createdAt: '2024-01-01T00:00:00.000Z',
-  },
-];
-
-let mockFollowers = CREATORS;
-let mockFollowing = CREATORS;
+let CREATORS = [];
+let mockFollowers = [];
+let mockFollowing = [];
 
 function sendJson(response, status, body) {
   response.writeHead(status, {
@@ -313,96 +282,7 @@ const server = http.createServer(async (request, response) => {
 
   // ── Feed ──────────────────────────────────────────────────────────────────
   if (request.method === 'GET' && (request.url === '/api/feed' || request.url?.startsWith('/api/feed?'))) {
-    const feedPosts = [
-      {
-        id: 'post-1',
-        user: {
-          username: 'nova_fits',
-          avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600',
-          isVerified: true,
-        },
-        images: ['https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=700'],
-        caption: 'Tokyo Streetwear Energy 🖤 Vintage leather bomber paired with wide parachute cargo pants #streetwear #OOTD',
-        tags: [
-          { id: 'item-n1', name: 'Oversized Leather Bomber', brand: 'Oak & Fort', price: 8500 },
-          { id: 'item-n2', name: 'Parachute Cargo Pants', brand: 'Fear of God', price: 4200 },
-        ],
-        likeCount: 2410,
-        commentCount: 48,
-        isLiked: false,
-        isSaved: false,
-        createdAt: new Date(Date.now() - 1.5 * 3600000).toISOString(),
-      },
-      {
-        id: 'post-2',
-        user: {
-          username: 'chloe_styles',
-          avatarUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?q=80&w=600',
-          isVerified: true,
-        },
-        images: ['https://images.unsplash.com/photo-1496747611176-843222e1e57c?q=80&w=700'],
-        caption: 'Clean Girl Capsule ✨ Cashmere knit sweater paired with tailored trousers & leather tote #minimalist #neutrals',
-        tags: [
-          { id: 'item-c1', name: 'Cashmere Knit Sweater', brand: 'Everlane', price: 5400 },
-          { id: 'item-c2', name: 'High-Waist Trousers', brand: 'Arket', price: 3900 },
-        ],
-        likeCount: 3120,
-        commentCount: 92,
-        isLiked: true,
-        isSaved: true,
-        createdAt: new Date(Date.now() - 4.5 * 3600000).toISOString(),
-      },
-      {
-        id: 'post-3',
-        user: {
-          username: 'nova_fits',
-          avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600',
-          isVerified: true,
-        },
-        images: ['https://images.unsplash.com/photo-1509631179647-0177331693ae?q=80&w=700'],
-        caption: 'Night Drip Aesthetic 🕶️ Cyber matte sunglasses with retro high-top sneakers #streetstyle #drip',
-        tags: [
-          { id: 'item-n3', name: 'Matte Cyber Sunglasses', brand: 'Gentle Monster', price: 2100 },
-        ],
-        likeCount: 1840,
-        commentCount: 31,
-        isLiked: false,
-        isSaved: false,
-        createdAt: new Date(Date.now() - 10 * 3600000).toISOString(),
-      },
-      {
-        id: 'post-4',
-        user: {
-          username: 'chloe_styles',
-          avatarUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?q=80&w=600',
-          isVerified: true,
-        },
-        images: ['https://images.unsplash.com/photo-1485230895905-ec40ba36b9bc?q=80&w=700'],
-        caption: 'Minimalist Coffee Run Look ☕ Soft knit, gold hoops, and leather tote bag #cleanstyle #dailylook',
-        tags: [
-          { id: 'item-c3', name: 'Leather Tote Bag', brand: 'Polène', price: 7200 },
-        ],
-        likeCount: 1980,
-        commentCount: 54,
-        isLiked: false,
-        isSaved: false,
-        createdAt: new Date(Date.now() - 18 * 3600000).toISOString(),
-      },
-      {
-        id: 'post-5', user: { username: 'hypebeast_rx', avatarUrl: 'https://i.pravatar.cc/150?u=hypebeast_rx', isVerified: true },
-        images: ['https://picsum.photos/seed/drip08/600/750'],
-        caption: 'New drops just landed 📦🔥 #hypebeast #sneakers #streetwear',
-        tags: [], likeCount: 4102, commentCount: 203, isLiked: false, isSaved: false,
-        createdAt: new Date(Date.now() - 22 * 3600000).toISOString(),
-      },
-      {
-        id: 'post-6', user: { username: 'outfit_diary', avatarUrl: 'https://i.pravatar.cc/150?u=outfit_diary', isVerified: false },
-        images: ['https://picsum.photos/seed/drip09/600/750'],
-        caption: 'Week recap — 5 fits 5 days 💫 #weeklyootd #outfitdiary',
-        tags: [], likeCount: 731, commentCount: 45, isLiked: false, isSaved: true,
-        createdAt: new Date(Date.now() - 30 * 3600000).toISOString(),
-      },
-    ];
+    const feedPosts = [];
     return sendJson(response, 200, { posts: feedPosts, nextCursor: null });
   }
 

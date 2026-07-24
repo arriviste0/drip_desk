@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Tabs, router } from 'expo-router';
-import { House, MagnifyingGlass, Plus, CoatHanger, User, Camera, Sparkle, TShirt, Heart } from 'phosphor-react-native';
+import { House, MagnifyingGlass, Plus, CoatHanger, User, Camera, Sparkle, TShirt, Heart, CaretRight } from 'phosphor-react-native';
 import BottomSheet from '@gorhom/bottom-sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NBBottomSheet } from '../../components/ui';
@@ -24,29 +24,28 @@ interface CustomTabBarProps {
 }
 
 function CreateTile({
-  icon, label, bg, textColor = colors.black, onPress, flex = 1,
-}: { icon: React.ReactNode; label: string; bg: string; textColor?: string; onPress: () => void; flex?: number }) {
+  icon, title, subtitle, onPress, bg = colors.paper,
+}: { icon: React.ReactNode; title: string; subtitle: string; onPress: () => void; bg?: string }) {
   return (
-    <Pressable onPress={onPress} style={{ flex }}>
+    <Pressable onPress={onPress} style={{ flex: 1 }}>
       <View
         style={{
           backgroundColor: bg,
-          borderRadius: radii.bento,
+          borderRadius: 20,
           padding: 16,
-          alignItems: 'center',
-          gap: 8,
           borderWidth: 1,
           borderColor: colors.bentoBorder,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.04,
-          shadowRadius: 8,
-          elevation: 2,
+          gap: 6,
         }}
       >
-        {icon}
-        <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 12, color: textColor, letterSpacing: 0.2 }}>
-          {label}
+        <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.bentoBorder }}>
+          {icon}
+        </View>
+        <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 14, color: colors.black, marginTop: 4 }}>
+          {title}
+        </Text>
+        <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 11, color: '#6B7280' }}>
+          {subtitle}
         </Text>
       </View>
     </Pressable>
@@ -174,58 +173,73 @@ function CustomTabBar({ state, navigation }: CustomTabBarProps) {
         })}
       </View>
 
-      <NBBottomSheet ref={sheetRef} snapPoints={['50%']}>
-        <View style={{ paddingHorizontal: 16, paddingTop: 6, paddingBottom: 24 }}>
-          <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 18, color: colors.black, marginBottom: 16, textAlign: 'center', letterSpacing: -0.3 }}>
-            Create New
+      {/* Minimalist Create Bottom Sheet */}
+      <NBBottomSheet ref={sheetRef} snapPoints={['54%']}>
+        <View style={{ paddingHorizontal: 18, paddingTop: 6, paddingBottom: 24, gap: 12 }}>
+          <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 18, color: colors.black, textAlign: 'center', letterSpacing: -0.3, marginBottom: 4 }}>
+            Create & Add
           </Text>
 
-          {/* Top row — primary actions */}
-          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
-            <CreateTile
-              icon={<Camera color={colors.black} size={24} weight="bold" />}
-              label="Post Outfit"
-              bg={colors.bentoYellow}
-              onPress={() => { sheetRef.current?.close(); router.push('/(modals)/create-post'); }}
-            />
-            <CreateTile
-              icon={<Sparkle color={colors.bentoPurple} size={24} weight="fill" />}
-              label="AI Outfit"
-              bg={colors.bentoLavender}
-              textColor={colors.bentoPurple}
-              onPress={() => { sheetRef.current?.close(); router.push('/(modals)/ai-matcher'); }}
-            />
-          </View>
-
-          {/* Middle row */}
-          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
-            <CreateTile
-              icon={<TShirt color="#BE185D" size={24} weight="bold" />}
-              label="Build Outfit"
-              bg={colors.bentoRose}
-              textColor="#BE185D"
-              onPress={() => { sheetRef.current?.close(); router.push('/(modals)/make-outfit'); }}
-            />
-            <CreateTile
-              icon={<Plus color={colors.bentoMint} size={24} weight="bold" />}
-              label="Add Item"
-              bg={colors.bentoMintLight}
-              textColor={colors.bentoMint}
-              onPress={() => { sheetRef.current?.close(); router.push('/(modals)/add-item'); }}
-            />
-          </View>
-
-          {/* Wishlist row */}
+          {/* 2-Column Balanced Grid Row 1 */}
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <CreateTile
-              icon={<Heart color="#BE185D" size={24} weight="bold" />}
-              label="Wishlist"
-              bg={colors.bentoRose}
-              textColor="#BE185D"
-              onPress={() => { sheetRef.current?.close(); router.push('/(modals)/add-item?isWishlist=true'); }}
-              flex={0.5}
+              icon={<CoatHanger color={colors.bentoPurple} size={20} weight="bold" />}
+              title="Add Item"
+              subtitle="Catalog to closet"
+              onPress={() => { sheetRef.current?.close(); router.push('/(modals)/add-item'); }}
+            />
+            <CreateTile
+              icon={<Camera color={colors.black} size={20} weight="bold" />}
+              title="Post Outfit"
+              subtitle="Share to feed"
+              onPress={() => { sheetRef.current?.close(); router.push('/(modals)/create-post'); }}
             />
           </View>
+
+          {/* 2-Column Balanced Grid Row 2 */}
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <CreateTile
+              icon={<Sparkle color={colors.bentoPurple} size={20} weight="fill" />}
+              title="AI Matcher"
+              subtitle="Smart outfits"
+              onPress={() => { sheetRef.current?.close(); router.push('/(modals)/ai-matcher'); }}
+            />
+            <CreateTile
+              icon={<TShirt color="#EC4899" size={20} weight="bold" />}
+              title="Build Outfit"
+              subtitle="Combine items"
+              onPress={() => { sheetRef.current?.close(); router.push('/(modals)/make-outfit'); }}
+            />
+          </View>
+
+          {/* Full-Width Minimalist Bottom Wishlist Action Bar */}
+          <Pressable
+            onPress={() => { sheetRef.current?.close(); router.push('/(modals)/add-item?isWishlist=true'); }}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: colors.paper,
+              borderRadius: 20,
+              padding: 14,
+              borderWidth: 1,
+              borderColor: colors.bentoBorder,
+              gap: 12,
+              marginTop: 2,
+            }}
+          >
+            <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.bentoBorder }}>
+              <Heart color="#E11D48" size={20} weight="bold" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 14, color: colors.black }}>
+                Add to Wishlist
+              </Text>
+              <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 11, color: '#6B7280' }}>
+                Save items you want to buy later
+              </Text>
+            </View>
+            <CaretRight color="#9CA3AF" size={16} weight="bold" />
+          </Pressable>
         </View>
       </NBBottomSheet>
     </>

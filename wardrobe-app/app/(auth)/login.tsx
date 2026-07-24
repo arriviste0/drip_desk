@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
+  LayoutAnimation,
   Platform,
   Pressable,
   ScrollView,
@@ -8,15 +9,20 @@ import {
   Text,
   TextInput,
   View,
+  UIManager,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useAuthRequest, makeRedirectUri } from 'expo-auth-session';
-import { Eye, EyeSlash, ArrowRight, UserPlus, WarningCircle, CheckCircle } from 'phosphor-react-native';
+import { Eye, EyeSlash, WarningCircle, CheckCircle, Sparkle } from 'phosphor-react-native';
 import { useAuthStore } from '../../store/authStore';
 import { colors, radii } from '../../lib/theme';
 import { NBButton, useToast } from '../../components/ui';
 import api from '../../lib/axios';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -28,24 +34,35 @@ const GOOGLE_DISCOVERY = {
 
 const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? '';
 
-export default function Login() {
+type AuthMode = 'signin' | 'signup';
+
+export function SingleAuthScreen({ initialMode = 'signin' }: { initialMode?: AuthMode }) {
   const login = useAuthStore((s) => s.login);
   const showToast = useToast();
-  const params = useLocalSearchParams<{ email?: string }>();
+  const params = useLocalSearchParams<{ email?: string; mode?: AuthMode }>();
 
+  const [mode, setMode] = useState<AuthMode>(params.mode ?? initialMode);
+  const [name, setName] = useState('');
   const [email, setEmail] = useState(params.email ?? '');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
+  const [nameError, setNameError] = useState('');
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [generalError, setGeneralError] = useState('');
-  const [accountNotFound, setAccountNotFound] = useState(false);
+  const [bannerAlert, setBannerAlert] = useState<{ type: 'not_found' | 'exists'; message: string } | null>(null);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (params.email) setEmail(params.email);
-  }, [params.email]);
+  function switchMode(newMode: AuthMode) {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setMode(newMode);
+    setGeneralError('');
+    setBannerAlert(null);
+    setNameError('');
+    setEmailError('');
+    setPasswordError('');
+  }
 
   const [_req, googleResponse, promptGoogleAsync] = useAuthRequest(
     {
@@ -66,47 +83,81 @@ export default function Login() {
     }
   }, [googleResponse]);
 
-  async function handleLogin() {
+  async function handleSubmit() {
+    setNameError('');
     setEmailError('');
     setPasswordError('');
     setGeneralError('');
-    setAccountNotFound(false);
+    setBannerAlert(null);
 
     let valid = true;
+    if (mode === 'signup' && !name.trim()) { setNameError('Full name is required'); valid = false; }
     if (!email.trim()) { setEmailError('Email address is required'); valid = false; }
     if (!password) { setPasswordError('Password is required'); valid = false; }
+    else if (mode === 'signup' && password.length < 8) { setPasswordError('Min 8 characters required'); valid = false; }
     if (!valid) return;
 
     setLoading(true);
     const cleanEmail = email.trim().toLowerCase();
 
-    try {
-      const { data } = await api.post<{ token: string; user: any }>('/api/auth/login', {
-        email: cleanEmail,
-        password,
-      });
-      await login(data.token, data.user);
-      showToast(`Welcome back, @${data.user.username}! ✨`, 'success');
-      router.replace('/(tabs)');
-    } catch (error: any) {
-      const errRes = error.response;
-      if (errRes?.status === 404 || errRes?.data?.code === 'ACCOUNT_NOT_FOUND') {
-        setAccountNotFound(true);
-        setGeneralError('No account found for this email address.');
-      } else if (errRes?.status === 401 || errRes?.data?.code === 'INVALID_PASSWORD') {
-        setPasswordError('Incorrect password. Please try again.');
-      } else {
-        setGeneralError(errRes?.data?.message ?? 'Login failed. Please check your credentials.');
+    if (mode === 'signin') {
+      try {
+        const { data } = await api.post<{ token: string; user: any }>('/api/auth/login', {
+          email: cleanEmail,
+          password,
+        });
+        await login(data.token, data.user);
+        showToast(`Welcome back, @${data.user.username}! ✨`, 'success');
+        router.replace('/(tabs)');
+      } catch (error: any) {
+        const errRes = error.response;
+        if (errRes?.status === 404 || errRes?.data?.code === 'ACCOUNT_NOT_FOUND') {
+          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+          setBannerAlert({
+            type: 'not_found',
+            message: `No account matches ${cleanEmail}. We've switched you to Sign Up!`,
+          });
+          setMode('signup');
+        } else if (errRes?.status === 401 || errRes?.data?.code === 'INVALID_PASSWORD') {
+          setPasswordError('Incorrect password. Please try again.');
+        } else {
+          setGeneralError(errRes?.data?.message ?? 'Sign in failed. Please check credentials.');
+        }
+      } finally {
+        setLoading(false);
       }
-    } finally {
-      setLoading(false);
+    } else {
+      try {
+        const { data } = await api.post<{ token: string; user: any }>('/api/auth/register', {
+          email: cleanEmail,
+          password,
+          displayName: name.trim(),
+        });
+        await login(data.token, data.user);
+        showToast(`Welcome to Drip Deck, @${data.user.username}! 🎉`, 'success');
+        router.replace('/(tabs)');
+      } catch (error: any) {
+        const errRes = error.response;
+        if (errRes?.status === 409 || errRes?.data?.code === 'ACCOUNT_EXISTS') {
+          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+          setBannerAlert({
+            type: 'exists',
+            message: `An account with ${cleanEmail} already exists. Please enter your password to Sign In.`,
+          });
+          setMode('signin');
+        } else {
+          setGeneralError(errRes?.data?.message ?? 'Sign up failed. Please try again.');
+        }
+      } finally {
+        setLoading(false);
+      }
     }
   }
 
   async function handleGoogleToken(accessToken: string) {
     setLoading(true);
     setGeneralError('');
-    setAccountNotFound(false);
+    setBannerAlert(null);
 
     try {
       const { data } = await api.post<{ token: string; user: any }>('/api/auth/google', { accessToken });
@@ -114,7 +165,6 @@ export default function Login() {
       showToast(`Welcome to Drip Deck, @${data.user.username}! 🚀`, 'success');
       router.replace('/(tabs)');
     } catch {
-      // Fallback for seamless local testing
       const mockUser = {
         id: `usr_g_${Date.now()}`,
         email: 'google_user@drip.app',
@@ -146,10 +196,6 @@ export default function Login() {
     });
   }
 
-  function goToSignupWithEmail() {
-    router.replace({ pathname: '/(auth)/signup', params: { email: email.trim() } });
-  }
-
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: colors.paper }}
@@ -162,15 +208,15 @@ export default function Login() {
         showsVerticalScrollIndicator={false}
       >
         {/* Header Branding */}
-        <View style={{ alignItems: 'center', marginBottom: 24 }}>
-          <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: colors.black, alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
-            <Text style={{ fontFamily: 'DelaGothicOne', fontSize: 26, color: colors.yellow }}>D</Text>
+        <View style={{ alignItems: 'center', marginBottom: 20 }}>
+          <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: colors.black, alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+            <Text style={{ fontFamily: 'DelaGothicOne', fontSize: 24, color: colors.yellow }}>D</Text>
           </View>
-          <Text style={{ fontFamily: 'DelaGothicOne', fontSize: 28, color: colors.black, letterSpacing: -0.5 }}>
+          <Text style={{ fontFamily: 'DelaGothicOne', fontSize: 26, color: colors.black, letterSpacing: -0.5 }}>
             DRIP DECK
           </Text>
-          <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 13, color: '#6B7280', marginTop: 4 }}>
-            Your AI-Powered Digital Closet & Social Network
+          <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 13, color: '#6B7280', marginTop: 2 }}>
+            {mode === 'signin' ? 'Welcome Back to Your AI Closet' : 'Create Your Drip Deck Account'}
           </Text>
         </View>
 
@@ -187,7 +233,7 @@ export default function Login() {
             shadowOpacity: 0.06,
             shadowRadius: 16,
             elevation: 4,
-            gap: 16,
+            gap: 14,
           }}
         >
           {/* Mode Switcher Segmented Control */}
@@ -201,70 +247,104 @@ export default function Login() {
               borderColor: colors.bentoBorder,
             }}
           >
-            <View
+            <Pressable
+              onPress={() => switchMode('signin')}
               style={{
                 flex: 1,
                 paddingVertical: 10,
                 alignItems: 'center',
                 justifyContent: 'center',
                 borderRadius: 9999,
-                backgroundColor: colors.black,
+                backgroundColor: mode === 'signin' ? colors.black : 'transparent',
               }}
             >
-              <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 13, color: colors.white }}>
+              <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 13, color: mode === 'signin' ? colors.white : '#6B7280' }}>
                 Sign In
               </Text>
-            </View>
+            </Pressable>
 
             <Pressable
-              onPress={() => router.replace({ pathname: '/(auth)/signup', params: { email } })}
+              onPress={() => switchMode('signup')}
               style={{
                 flex: 1,
                 paddingVertical: 10,
                 alignItems: 'center',
                 justifyContent: 'center',
                 borderRadius: 9999,
+                backgroundColor: mode === 'signup' ? colors.black : 'transparent',
               }}
             >
-              <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 13, color: '#6B7280' }}>
+              <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 13, color: mode === 'signup' ? colors.white : '#6B7280' }}>
                 Sign Up
               </Text>
             </Pressable>
           </View>
 
-          {/* Account Not Found Banner Prompt */}
-          {accountNotFound ? (
+          {/* Animated Banner Alert */}
+          {bannerAlert ? (
             <View
               style={{
-                backgroundColor: colors.bentoRoseSoft,
-                borderRadius: 18,
-                padding: 16,
+                backgroundColor: bannerAlert.type === 'not_found' ? colors.bentoRoseSoft : colors.bentoLavender,
+                borderRadius: 16,
+                padding: 14,
                 borderWidth: 1,
-                borderColor: '#FECDD3',
+                borderColor: bannerAlert.type === 'not_found' ? '#FECDD3' : '#DDD6FE',
+                flexDirection: 'row',
+                alignItems: 'center',
                 gap: 10,
               }}
             >
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              {bannerAlert.type === 'not_found' ? (
                 <WarningCircle color="#E11D48" size={20} weight="fill" />
-                <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 14, color: '#E11D48', flex: 1 }}>
-                  Account Not Found!
-                </Text>
-              </View>
-              <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 12, color: '#9F1239', lineHeight: 17 }}>
-                No registered user matches <Text style={{ fontFamily: 'SpaceGrotesk-Bold' }}>{email}</Text>. Please create an account to start your wardrobe collection.
+              ) : (
+                <CheckCircle color={colors.bentoPurple} size={20} weight="fill" />
+              )}
+              <Text
+                style={{
+                  fontFamily: 'SpaceGrotesk-Medium',
+                  fontSize: 12,
+                  color: bannerAlert.type === 'not_found' ? '#9F1239' : '#5B21B6',
+                  flex: 1,
+                  lineHeight: 17,
+                }}
+              >
+                {bannerAlert.message}
               </Text>
-              <NBButton
-                label="Create Account Now →"
-                variant="primary"
-                style={{ marginTop: 4, paddingVertical: 10 }}
-                onPress={goToSignupWithEmail}
-              />
             </View>
           ) : generalError ? (
             <View style={{ backgroundColor: colors.bentoRoseSoft, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: '#FECDD3' }}>
               <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 12, color: '#E11D48' }}>
                 {generalError}
               </Text>
+            </View>
+          ) : null}
+
+          {/* Inline Full Name Input (Only rendered in Sign Up mode) */}
+          {mode === 'signup' ? (
+            <View style={{ gap: 6 }}>
+              <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 13, color: colors.black }}>
+                Full Name
+              </Text>
+              <TextInput
+                placeholder="Alex Rivera"
+                placeholderTextColor="#9CA3AF"
+                value={name}
+                onChangeText={(text) => { setName(text); setNameError(''); }}
+                style={{
+                  backgroundColor: colors.paper,
+                  borderRadius: 14,
+                  paddingHorizontal: 16,
+                  paddingVertical: 12,
+                  fontFamily: 'SpaceGrotesk-Medium',
+                  fontSize: 14,
+                  color: colors.black,
+                  borderWidth: 1,
+                  borderColor: nameError ? '#EF4444' : colors.bentoBorder,
+                }}
+              />
+              {nameError ? (
+                <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 11, color: '#EF4444' }}>{nameError}</Text>
+              ) : null}
             </View>
           ) : null}
 
@@ -277,7 +357,7 @@ export default function Login() {
               placeholder="you@example.com"
               placeholderTextColor="#9CA3AF"
               value={email}
-              onChangeText={(text) => { setEmail(text); setAccountNotFound(false); setEmailError(''); }}
+              onChangeText={(text) => { setEmail(text); setEmailError(''); setBannerAlert(null); }}
               keyboardType="email-address"
               autoCapitalize="none"
               style={{
@@ -303,11 +383,13 @@ export default function Login() {
               <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 13, color: colors.black }}>
                 Password
               </Text>
-              <Pressable onPress={() => showToast('Enter your registered password', 'info')}>
-                <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 11, color: colors.bentoPurple }}>
-                  Forgot password?
-                </Text>
-              </Pressable>
+              {mode === 'signin' ? (
+                <Pressable onPress={() => showToast('Enter your account password to log in', 'info')}>
+                  <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 11, color: colors.bentoPurple }}>
+                    Forgot password?
+                  </Text>
+                </Pressable>
+              ) : null}
             </View>
             <View
               style={{
@@ -321,7 +403,7 @@ export default function Login() {
               }}
             >
               <TextInput
-                placeholder="••••••••"
+                placeholder={mode === 'signup' ? 'Min 8 characters' : '••••••••'}
                 placeholderTextColor="#9CA3AF"
                 value={password}
                 onChangeText={(text) => { setPassword(text); setPasswordError(''); }}
@@ -348,8 +430,15 @@ export default function Login() {
             ) : null}
           </View>
 
-          {/* Submit Sign In Button */}
-          <NBButton label="Sign In to Drip Deck" onPress={handleLogin} loading={loading} fullWidth variant="primary" style={{ paddingVertical: 14, marginTop: 4 }} />
+          {/* Submit Action Button */}
+          <NBButton
+            label={mode === 'signin' ? 'Sign In to Drip Deck' : 'Create Drip Deck Account'}
+            onPress={handleSubmit}
+            loading={loading}
+            fullWidth
+            variant="primary"
+            style={{ paddingVertical: 14, marginTop: 4 }}
+          />
 
           {/* Divider */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 4 }}>
@@ -381,15 +470,24 @@ export default function Login() {
             </Text>
           </Pressable>
 
-          {/* Bottom Prompt */}
-          <Pressable onPress={() => router.replace({ pathname: '/(auth)/signup', params: { email } })} style={{ alignItems: 'center', marginTop: 4 }}>
+          {/* Bottom Prompt Switcher */}
+          <Pressable
+            onPress={() => switchMode(mode === 'signin' ? 'signup' : 'signin')}
+            style={{ alignItems: 'center', marginTop: 4 }}
+          >
             <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 13, color: '#6B7280' }}>
-              Don't have an account yet?{' '}
-              <Text style={{ fontFamily: 'SpaceGrotesk-Bold', color: colors.bentoPurple }}>Sign up here →</Text>
+              {mode === 'signin' ? "Don't have an account yet? " : "Already registered? "}
+              <Text style={{ fontFamily: 'SpaceGrotesk-Bold', color: colors.bentoPurple }}>
+                {mode === 'signin' ? 'Sign up here →' : 'Sign in here →'}
+              </Text>
             </Text>
           </Pressable>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
+}
+
+export default function Login() {
+  return <SingleAuthScreen initialMode="signin" />;
 }

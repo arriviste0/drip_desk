@@ -56,7 +56,7 @@ export function StatsStrip({ stats }: StatsStripProps) {
 
   const displayPosts = (stats?.posts ?? 0) + localPosts.length;
   const displayOutfits = Math.max(stats?.outfits ?? 0, outfits.length);
-  const displayValue = Math.max(stats?.wardrobeValue ?? 0, calculatedClosetValue);
+  const displayValue = items.length === 0 ? 0 : Math.max(stats?.wardrobeValue ?? 0, calculatedClosetValue);
 
   return (
     <View

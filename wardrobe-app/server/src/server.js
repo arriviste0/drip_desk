@@ -386,7 +386,7 @@ const server = http.createServer(async (request, response) => {
     return sendJson(response, 200, {
       posts: 0,
       outfits: 0,
-      wardrobeValue: 1250,
+      wardrobeValue: 0,
     });
   }
 

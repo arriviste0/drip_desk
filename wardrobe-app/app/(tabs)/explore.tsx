@@ -2,11 +2,11 @@ import { useState, useMemo, useCallback } from 'react';
 import { Dimensions, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { Heart, MagnifyingGlass, Sparkle, X } from 'phosphor-react-native';
+import { Heart, MagnifyingGlass, Sparkle, X, User } from 'phosphor-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, radii } from '../../lib/theme';
 import { ExplorePinMenu, DiscoverPin } from '../../components/explore/ExplorePinMenu';
-import { useToast } from '../../components/ui';
+import { NBAvatar, useToast } from '../../components/ui';
 import { useWardrobeStore } from '../../store/wardrobeStore';
 import { usePostStore } from '../../store/postStore';
 import { WardrobeItem } from '../../types/item';
@@ -16,14 +16,19 @@ const { width: SCREEN_W } = Dimensions.get('window');
 const COL_W = (SCREEN_W - 3 * 12) / 2;
 
 const INITIAL_DISCOVER_POSTS: DiscoverPin[] = [
-  { id: 'd1', image: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=700', username: 'nova_fits', likes: 2410, tags: ['#streetwear', '#OOTD'] },
-  { id: 'd2', image: 'https://images.unsplash.com/photo-1496747611176-843222e1e57c?q=80&w=700', username: 'chloe_styles', likes: 3120, tags: ['#minimalist', '#neutrals'] },
-  { id: 'd3', image: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?q=80&w=700', username: 'nova_fits', likes: 1840, tags: ['#streetstyle', '#vintage'] },
-  { id: 'd4', image: 'https://images.unsplash.com/photo-1485230895905-ec40ba36b9bc?q=80&w=700', username: 'chloe_styles', likes: 1980, tags: ['#minimalist', '#OOTD'] },
-  { id: 'd5', image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?q=80&w=700', username: 'nova_fits', likes: 3450, tags: ['#streetwear', '#hypebeast'] },
-  { id: 'd6', image: 'https://images.unsplash.com/photo-1576566588028-4147f3842f27?q=80&w=700', username: 'chloe_styles', likes: 2210, tags: ['#minimalist', '#Y2K'] },
-  { id: 'd7', image: 'https://images.unsplash.com/photo-1517445312882-bc9910d016b7?q=80&w=700', username: 'nova_fits', likes: 1540, tags: ['#streetwear', '#OOTD'] },
-  { id: 'd8', image: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?q=80&w=700', username: 'chloe_styles', likes: 2890, tags: ['#neutrals', '#minimalist'] },
+  { id: 'd1', image: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=700', username: 'nova_fits', likes: 2410, tags: ['#streetwear', '#OOTD', 'Leather Bomber', 'Oak & Fort'] },
+  { id: 'd2', image: 'https://images.unsplash.com/photo-1496747611176-843222e1e57c?q=80&w=700', username: 'chloe_styles', likes: 3120, tags: ['#minimalist', '#neutrals', 'Cashmere Knit', 'Everlane'] },
+  { id: 'd3', image: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?q=80&w=700', username: 'nova_fits', likes: 1840, tags: ['#streetstyle', '#vintage', 'Parachute Pants', 'Fear of God'] },
+  { id: 'd4', image: 'https://images.unsplash.com/photo-1485230895905-ec40ba36b9bc?q=80&w=700', username: 'chloe_styles', likes: 1980, tags: ['#minimalist', '#OOTD', 'High-Waist Trousers', 'Arket'] },
+  { id: 'd5', image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?q=80&w=700', username: 'nova_fits', likes: 3450, tags: ['#streetwear', '#hypebeast', 'Jordan 1 Sneakers', 'Jordan'] },
+  { id: 'd6', image: 'https://images.unsplash.com/photo-1576566588028-4147f3842f27?q=80&w=700', username: 'chloe_styles', likes: 2210, tags: ['#minimalist', '#Y2K', 'Leather Tote', 'Polène'] },
+  { id: 'd7', image: 'https://images.unsplash.com/photo-1517445312882-bc9910d016b7?q=80&w=700', username: 'nova_fits', likes: 1540, tags: ['#streetwear', '#OOTD', 'Matte Sunglasses', 'Gentle Monster'] },
+  { id: 'd8', image: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?q=80&w=700', username: 'chloe_styles', likes: 2890, tags: ['#neutrals', '#minimalist', 'Gold Hoops', 'Mejuri'] },
+];
+
+const CREATORS_LIST = [
+  { username: 'nova_fits', name: 'Nova Vance', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600', style: 'Streetwear' },
+  { username: 'chloe_styles', name: 'Chloe Chen', avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?q=80&w=600', style: 'Minimalist' },
 ];
 
 const HASHTAGS = [
@@ -140,7 +145,7 @@ export default function ExploreScreen() {
       image: p.images[0] ?? 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=700',
       username: p.user.username,
       likes: p.likeCount,
-      tags: ['#OOTD', '#streetwear'],
+      tags: p.caption ? [p.caption, '#OOTD'] : ['#OOTD'],
       createdAt: p.createdAt,
     }));
   }, [localPosts]);
@@ -148,6 +153,14 @@ export default function ExploreScreen() {
   const allPosts = useMemo(() => {
     return [...userDiscoverPins, ...INITIAL_DISCOVER_POSTS];
   }, [userDiscoverPins]);
+
+  const matchingCreators = useMemo(() => {
+    if (!query.trim()) return [];
+    const q = query.toLowerCase().replace('@', '');
+    return CREATORS_LIST.filter(
+      (c) => c.username.toLowerCase().includes(q) || c.name.toLowerCase().includes(q)
+    );
+  }, [query]);
 
   const handlePressPin = useCallback((pin: DiscoverPin) => {
     router.push({ pathname: '/(modals)/post/[id]', params: { id: pin.id } });
@@ -218,14 +231,14 @@ export default function ExploreScreen() {
     router.push({ pathname: '/(modals)/post/[id]', params: { id: pin.id } });
   }, []);
 
-  // Filter & rank posts using recommendation system
+  // Filter & rank posts across multi-entities
   const filtered = useMemo(() => {
     let posts = allPosts;
     if (activeTag) {
       posts = posts.filter((p) => p.tags.some((t) => t.toLowerCase() === activeTag.toLowerCase()));
     }
     if (query.trim()) {
-      const q = query.toLowerCase();
+      const q = query.toLowerCase().replace('@', '');
       posts = posts.filter(
         (p) =>
           p.username.toLowerCase().includes(q) ||
@@ -277,7 +290,7 @@ export default function ExploreScreen() {
         >
           <MagnifyingGlass color="#6B7280" size={18} weight="bold" />
           <TextInput
-            placeholder="Search styles, creators, tags…"
+            placeholder="Search creators, posts, brands, items…"
             placeholderTextColor="#9CA3AF"
             value={query}
             onChangeText={setQuery}
@@ -293,8 +306,46 @@ export default function ExploreScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
+        {/* Creator Search Results Chips */}
+        {matchingCreators.length > 0 && (
+          <View style={{ paddingHorizontal: 16, paddingTop: 14, gap: 10 }}>
+            <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 13, color: '#6B7280' }}>
+              MATCHING CREATORS ({matchingCreators.length})
+            </Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, flexDirection: 'row' }}>
+              {matchingCreators.map((creator) => (
+                <Pressable
+                  key={creator.username}
+                  onPress={() => router.push({ pathname: '/(modals)/user-profile/[username]', params: { username: creator.username } })}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 10,
+                    backgroundColor: colors.white,
+                    paddingVertical: 8,
+                    paddingHorizontal: 12,
+                    borderRadius: 9999,
+                    borderWidth: 1,
+                    borderColor: colors.bentoBorder,
+                  }}
+                >
+                  <NBAvatar uri={creator.avatar} size="sm" />
+                  <View>
+                    <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 13, color: colors.black }}>
+                      @{creator.username}
+                    </Text>
+                    <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 10, color: '#6B7280' }}>
+                      {creator.style} Creator
+                    </Text>
+                  </View>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
         {/* Trending Bento Hashtags */}
-        <View style={{ backgroundColor: colors.white, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.bentoBorder }}>
+        <View style={{ backgroundColor: colors.white, paddingVertical: 12, marginTop: 10, borderBottomWidth: 1, borderBottomColor: colors.bentoBorder }}>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -359,7 +410,7 @@ export default function ExploreScreen() {
           }}
         >
           <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 15, color: colors.black, flex: 1 }}>
-            {activeTag ? activeTag : 'Recommended Trends'}
+            {activeTag ? activeTag : query ? `Search Results (${filtered.length})` : 'Recommended Trends'}
           </Text>
           <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 12, color: '#9CA3AF' }}>
             Hold for options
@@ -370,7 +421,7 @@ export default function ExploreScreen() {
           <View style={{ padding: 40, alignItems: 'center' }}>
             <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 18, color: colors.black }}>No Results Found</Text>
             <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 13, color: '#9CA3AF', marginTop: 6 }}>
-              Try searching for something else
+              Try searching for creators, brands, or styles
             </Text>
           </View>
         ) : (

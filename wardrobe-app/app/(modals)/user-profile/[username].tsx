@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
+import { ChatCircleDots } from 'phosphor-react-native';
 import { ProfileHeader } from '../../../components/profile/ProfileHeader';
 import { ProfilePostGrid } from '../../../components/profile/ProfilePostGrid';
 import { UserListModal } from '../../../components/profile/UserListModal';
@@ -101,12 +102,33 @@ export default function UserProfileModal() {
   }
 
   const followButton = !isOwnProfile ? (
-    <NBButton
-      label={user.isFollowing ? 'Following' : 'Follow'}
-      variant={user.isFollowing ? 'secondary' : 'primary'}
-      onPress={() => followMutation.mutate(user.isFollowing ?? false)}
-      style={{ minWidth: 100 }}
-    />
+    <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+      <NBButton
+        label={user.isFollowing ? 'Following' : 'Follow'}
+        variant={user.isFollowing ? 'secondary' : 'primary'}
+        onPress={() => followMutation.mutate(user.isFollowing ?? false)}
+        style={{ flex: 1 }}
+      />
+      <Pressable
+        onPress={() => router.push({ pathname: '/(modals)/messages/[conversationId]', params: { conversationId: user.username } })}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 6,
+          backgroundColor: colors.bentoLavender,
+          paddingHorizontal: 16,
+          paddingVertical: 10,
+          borderRadius: 9999,
+          borderWidth: 1,
+          borderColor: colors.bentoBorder,
+        }}
+      >
+        <ChatCircleDots color={colors.bentoPurple} size={18} weight="bold" />
+        <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 13, color: colors.bentoPurple }}>
+          Message
+        </Text>
+      </Pressable>
+    </View>
   ) : null;
 
   return (

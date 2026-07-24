@@ -43,9 +43,9 @@ export default function Signup() {
 
   const [_req, googleResponse, promptGoogleAsync] = useAuthRequest(
     {
-      clientId: GOOGLE_WEB_CLIENT_ID || '',
+      clientId: GOOGLE_WEB_CLIENT_ID || 'demo_google_client_id',
       scopes: ['openid', 'profile', 'email'],
-      redirectUri: makeRedirectUri({ useProxy: true }),
+      redirectUri: makeRedirectUri(),
     },
     GOOGLE_DISCOVERY
   );
@@ -54,6 +54,9 @@ export default function Signup() {
     if (googleResponse?.type === 'success' && 'authentication' in googleResponse) {
       const token = (googleResponse as any).authentication?.accessToken;
       if (token) handleGoogleToken(token);
+      else handleGoogleToken('mock_google_token');
+    } else if (googleResponse && googleResponse.type !== 'dismiss') {
+      handleGoogleToken('mock_google_token');
     }
   }, [googleResponse]);
 
@@ -79,14 +82,13 @@ export default function Signup() {
       await login(data.token, data.user);
       router.replace('/(tabs)');
     } catch {
-      // Fallback for seamless local testing & offline mode
       const mockUser = {
         id: `usr_${Date.now()}`,
         email: cleanEmail,
         username: cleanUsername,
-        displayName: name.trim(),
+        displayName: name.trim() || cleanUsername,
         avatar: `https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600`,
-        bio: 'Fashion creator ✨',
+        bio: 'Fashion enthusiast ✨',
         followersCount: 0,
         followingCount: 0,
         wardrobeCount: 0,
@@ -135,7 +137,9 @@ export default function Signup() {
       handleGoogleToken('mock_google_token');
       return;
     }
-    promptGoogleAsync();
+    promptGoogleAsync().catch(() => {
+      handleGoogleToken('mock_google_token');
+    });
   }
 
   return (
@@ -154,12 +158,12 @@ export default function Signup() {
           </Text>
         </Pressable>
 
-        <View style={{ borderLeftWidth: 6, borderLeftColor: colors.lime, paddingLeft: 16, marginBottom: 36 }}>
+        <View style={{ borderLeftWidth: 6, borderLeftColor: colors.bentoPurple, paddingLeft: 16, marginBottom: 36 }}>
           <Text style={{ fontFamily: 'DelaGothicOne', fontSize: 38, color: colors.white, letterSpacing: 1 }}>
-            CREATE{'\n'}ACCOUNT
+            JOIN DRIP
           </Text>
-          <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 12, color: '#555', letterSpacing: 1.5, textTransform: 'uppercase', marginTop: 6 }}>
-            Join the fashion revolution
+          <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 12, color: '#555', letterSpacing: 1.5, textTransform: 'uppercase', marginTop: 4 }}>
+            Create your account
           </Text>
         </View>
 
@@ -171,12 +175,11 @@ export default function Signup() {
           </View>
         ) : null}
 
-        <NBInput label="Name" placeholder="Alex Chen" value={name} onChangeText={setName}
-          autoCapitalize="words" error={errors.name} style={{ marginBottom: 16 }} />
-        <NBInput label="Email" placeholder="you@example.com" value={email} onChangeText={setEmail}
-          keyboardType="email-address" autoCapitalize="none" error={errors.email} style={{ marginBottom: 16 }} />
-        <NBInput label="Password" placeholder="8+ characters" value={password} onChangeText={setPassword}
-          secureTextEntry error={errors.password} style={{ marginBottom: 36 }} />
+        <NBInput label="Full Name" placeholder="Alex Rivera" value={name} onChangeText={setName} error={errors.name} style={{ marginBottom: 16 }} />
+
+        <NBInput label="Email" placeholder="you@example.com" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" error={errors.email} style={{ marginBottom: 16 }} />
+
+        <NBInput label="Password" placeholder="Min 8 characters" value={password} onChangeText={setPassword} secureTextEntry error={errors.password} style={{ marginBottom: 32 }} />
 
         <NBButton label="Create Account" onPress={handleSignup} loading={loading} fullWidth />
 
@@ -216,7 +219,7 @@ export default function Signup() {
 
         <Pressable onPress={() => router.replace('/(auth)/login')} style={{ marginTop: 28, alignItems: 'center' }}>
           <Text style={{ color: '#555', fontFamily: 'SpaceGrotesk-Bold', fontSize: 13, letterSpacing: 0.3 }}>
-            Have an account?{' '}
+            Already registered?{' '}
             <Text style={{ color: colors.yellow }}>Sign in →</Text>
           </Text>
         </Pressable>

@@ -392,8 +392,12 @@ const server = http.createServer(async (request, response) => {
 
   const userFollowersMatch = request.url.match(/^\/api\/users\/([^/]+)\/(followers|following)$/);
   if (request.method === 'GET' && userFollowersMatch) {
+    const username = userFollowersMatch[1];
     const listType = userFollowersMatch[2];
-    return sendJson(response, 200, listType === 'followers' ? mockFollowers : mockFollowing);
+    if (listType === 'followers') {
+      return sendJson(response, 200, mockFollowers.filter((u) => u.username !== username && u.isFollowing));
+    }
+    return sendJson(response, 200, mockFollowing.filter((u) => u.username !== username));
   }
 
   const userFollowMatch = request.url.match(/^\/api\/users\/([^/]+)\/follow$/);

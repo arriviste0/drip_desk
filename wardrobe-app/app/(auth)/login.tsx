@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { useAuthRequest, makeRedirectUri } from 'expo-auth-session';
+import * as Google from 'expo-auth-session/providers/google';
 import { Eye, EyeSlash, WarningCircle, CheckCircle, Sparkle } from 'phosphor-react-native';
 import { useAuthStore } from '../../store/authStore';
 import { colors, radii } from '../../lib/theme';
@@ -25,12 +25,6 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 }
 
 WebBrowser.maybeCompleteAuthSession();
-
-const GOOGLE_DISCOVERY = {
-  authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
-  tokenEndpoint: 'https://oauth2.googleapis.com/token',
-  revocationEndpoint: 'https://oauth2.googleapis.com/revoke',
-};
 
 const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? '';
 
@@ -64,18 +58,15 @@ export function SingleAuthScreen({ initialMode = 'signin' }: { initialMode?: Aut
     setPasswordError('');
   }
 
-  const [_req, googleResponse, promptGoogleAsync] = useAuthRequest(
-    {
-      clientId: GOOGLE_WEB_CLIENT_ID || 'demo_google_client_id',
-      scopes: ['openid', 'profile', 'email'],
-      redirectUri: makeRedirectUri(),
-    },
-    GOOGLE_DISCOVERY
-  );
+  const [request, googleResponse, promptGoogleAsync] = Google.useAuthRequest({
+    webClientId: GOOGLE_WEB_CLIENT_ID || undefined,
+    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || undefined,
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || undefined,
+  });
 
   useEffect(() => {
-    if (googleResponse?.type === 'success' && 'authentication' in googleResponse) {
-      const token = (googleResponse as any).authentication?.accessToken;
+    if (googleResponse?.type === 'success') {
+      const token = googleResponse.authentication?.accessToken ?? (googleResponse as any).params?.access_token;
       if (token) handleGoogleToken(token);
       else handleGoogleToken('mock_google_token');
     } else if (googleResponse && googleResponse.type !== 'dismiss') {
@@ -187,13 +178,13 @@ export function SingleAuthScreen({ initialMode = 'signin' }: { initialMode?: Aut
   }
 
   function handleGooglePress() {
-    if (!GOOGLE_WEB_CLIENT_ID) {
+    if (request) {
+      promptGoogleAsync().catch(() => {
+        handleGoogleToken('mock_google_token');
+      });
+    } else {
       handleGoogleToken('mock_google_token');
-      return;
     }
-    promptGoogleAsync().catch(() => {
-      handleGoogleToken('mock_google_token');
-    });
   }
 
   return (

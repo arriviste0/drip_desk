@@ -25,6 +25,7 @@ import { NBAvatar, NBBadge, NBTag, NBButton, useToast } from '../ui';
 import { FeedPost, ShoppableTag } from '../../types/post';
 import { colors, radii } from '../../lib/theme';
 import { usePostStore } from '../../store/postStore';
+import { useAuthStore } from '../../store/authStore';
 import { useWardrobeStore } from '../../store/wardrobeStore';
 import { WardrobeItem } from '../../types/item';
 import { Interactive3DMannequin } from './Interactive3DMannequin';
@@ -80,6 +81,8 @@ function OutfitPostCardInner({
   const addItem = useWardrobeStore((s) => s.addItem);
   const addToWishlist = useWardrobeStore((s) => s.addToWishlist);
   const showToast = useToast();
+  const me = useAuthStore((s) => s.user);
+  const isMyPost = Boolean(me && (post.user.username === me.username || post.user.username === me.displayName));
 
   // Optimistic local state for instant real-time feedback
   const [isLiked, setIsLiked] = useState(post.isLiked ?? false);
@@ -557,7 +560,7 @@ function OutfitPostCardInner({
                   <NBButton label="Save Changes" variant="primary" style={{ flex: 1 }} onPress={handleSaveEdit} />
                 </View>
               </View>
-            ) : (
+            ) : isMyPost ? (
               <View style={{ gap: 10 }}>
                 <Pressable
                   onPress={() => setIsEditing(true)}
@@ -576,6 +579,18 @@ function OutfitPostCardInner({
                   <Trash color="#EF4444" size={20} weight="bold" />
                   <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 14, color: '#EF4444' }}>
                     Delete Post
+                  </Text>
+                </Pressable>
+              </View>
+            ) : (
+              <View style={{ gap: 10 }}>
+                <Pressable
+                  onPress={() => { setShowMenu(false); onShare(post.id); }}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 16, backgroundColor: colors.paper }}
+                >
+                  <Export color={colors.black} size={20} weight="bold" />
+                  <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 14, color: colors.black }}>
+                    Share Outfit Link
                   </Text>
                 </Pressable>
               </View>

@@ -9,6 +9,7 @@ import { ExplorePinMenu, DiscoverPin } from '../../components/explore/ExplorePin
 import { NBAvatar, useToast } from '../../components/ui';
 import { useWardrobeStore } from '../../store/wardrobeStore';
 import { usePostStore } from '../../store/postStore';
+import { useAuthStore } from '../../store/authStore';
 import { WardrobeItem } from '../../types/item';
 import { rankPosts } from '../../lib/recommendation';
 
@@ -142,13 +143,42 @@ export default function ExploreScreen() {
     return [...userDiscoverPins, ...INITIAL_DISCOVER_POSTS];
   }, [userDiscoverPins]);
 
+  const currentUser = useAuthStore((s) => s.user);
+
+  // Dynamically extract all registered creators & post authors for Explore search
+  const registeredCreators = useMemo(() => {
+    const map = new Map<string, { username: string; name: string; avatar: string; style: string }>();
+
+    if (currentUser && currentUser.username) {
+      map.set(currentUser.username, {
+        username: currentUser.username,
+        name: currentUser.displayName || currentUser.username,
+        avatar: currentUser.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600',
+        style: 'Fashion Creator',
+      });
+    }
+
+    localPosts.forEach((p) => {
+      if (p.user && p.user.username) {
+        map.set(p.user.username, {
+          username: p.user.username,
+          name: p.user.username,
+          avatar: p.user.avatarUrl ?? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600',
+          style: 'Fashion Creator',
+        });
+      }
+    });
+
+    return Array.from(map.values());
+  }, [currentUser, localPosts]);
+
   const matchingCreators = useMemo(() => {
     if (!query.trim()) return [];
     const q = query.toLowerCase().replace('@', '');
-    return CREATORS_LIST.filter(
+    return registeredCreators.filter(
       (c) => c.username.toLowerCase().includes(q) || c.name.toLowerCase().includes(q)
     );
-  }, [query]);
+  }, [registeredCreators, query]);
 
   const handlePressPin = useCallback((pin: DiscoverPin) => {
     router.push({ pathname: '/(modals)/post/[id]', params: { id: pin.id } });

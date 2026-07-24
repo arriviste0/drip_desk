@@ -20,11 +20,13 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { router } from 'expo-router';
-import { BookmarkSimple, ChatCircle, Export, Heart, Cube, Camera, ChartPie, DotsThreeVertical, PencilSimple, Trash, X } from 'phosphor-react-native';
+import { BookmarkSimple, ChatCircle, Export, Heart, Cube, Camera, ChartPie, DotsThreeVertical, PencilSimple, Trash, X, CoatHanger } from 'phosphor-react-native';
 import { NBAvatar, NBBadge, NBTag, NBButton, useToast } from '../ui';
-import { FeedPost } from '../../types/post';
+import { FeedPost, ShoppableTag } from '../../types/post';
 import { colors, radii } from '../../lib/theme';
 import { usePostStore } from '../../store/postStore';
+import { useWardrobeStore } from '../../store/wardrobeStore';
+import { WardrobeItem } from '../../types/item';
 import { Interactive3DMannequin } from './Interactive3DMannequin';
 import { OutfitFitDiagrams } from './OutfitFitDiagrams';
 
@@ -71,9 +73,12 @@ function OutfitPostCardInner({
   const [showMenu, setShowMenu] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editCaptionText, setEditCaptionText] = useState(post.caption ?? '');
+  const [selectedTag, setSelectedTag] = useState<ShoppableTag | null>(null);
 
   const editPost = usePostStore((s) => s.editPost);
   const deletePost = usePostStore((s) => s.deletePost);
+  const addItem = useWardrobeStore((s) => s.addItem);
+  const addToWishlist = useWardrobeStore((s) => s.addToWishlist);
   const showToast = useToast();
 
   // Optimistic local state for instant real-time feedback
@@ -113,6 +118,46 @@ function OutfitPostCardInner({
     deletePost(post.id);
     setShowMenu(false);
     showToast('Post deleted! 🗑️', 'info');
+  }
+
+  function handleTagClick(tag: ShoppableTag) {
+    setSelectedTag(tag);
+    onTagPress(tag.id);
+  }
+
+  function handleAddTagToCloset(tag: ShoppableTag) {
+    const newItem: WardrobeItem = {
+      id: 'item_' + tag.id + '_' + Date.now(),
+      name: tag.item?.name ?? 'Tagged Outfit Item',
+      category: tag.item?.category ?? 'tops',
+      imageUrl: tag.item?.imageUrl ?? post.images[0],
+      purchasePrice: tag.item?.purchasePrice ?? 3500,
+      brand: tag.item?.brand ?? 'Designer',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      wearCount: 0,
+    };
+    addItem(newItem);
+    setSelectedTag(null);
+    showToast('Added item to My Closet! 👕', 'success');
+  }
+
+  function handleAddTagToWishlist(tag: ShoppableTag) {
+    const newItem: WardrobeItem = {
+      id: 'wish_' + tag.id + '_' + Date.now(),
+      name: tag.item?.name ?? 'Tagged Wishlist Item',
+      category: tag.item?.category ?? 'tops',
+      imageUrl: tag.item?.imageUrl ?? post.images[0],
+      purchasePrice: tag.item?.purchasePrice ?? 3500,
+      brand: tag.item?.brand ?? 'Designer',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      wearCount: 0,
+      isWishlist: true,
+    };
+    addToWishlist(newItem);
+    setSelectedTag(null);
+    showToast('Saved item to Wishlist! 💖', 'success');
   }
 
   const heartScale = useSharedValue(0);
@@ -257,7 +302,7 @@ function OutfitPostCardInner({
                     <NBTag
                       label={tag.item?.name ?? 'Item'}
                       price={tag.item?.purchasePrice}
-                      onPress={() => onTagPress(tag.id)}
+                      onPress={() => handleTagClick(tag)}
                     />
                     {tag.item?.isForSale ? (
                       <View style={{ position: 'absolute', top: -12, right: -8 }}>
@@ -535,6 +580,49 @@ function OutfitPostCardInner({
                 </Pressable>
               </View>
             )}
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Interactive Tagged Closet Item Action Sheet */}
+      <Modal visible={selectedTag !== null} transparent animationType="fade" onRequestClose={() => setSelectedTag(null)}>
+        <Pressable onPress={() => setSelectedTag(null)} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end', paddingHorizontal: 14, paddingBottom: 24 }}>
+          <Pressable onPress={(e) => e.stopPropagation()} style={{ backgroundColor: colors.white, borderRadius: radii.bento, padding: 20, borderWidth: 1, borderColor: colors.bentoBorder, gap: 14 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 18, color: colors.black }}>
+                  {selectedTag?.item?.name ?? 'Tagged Closet Item'}
+                </Text>
+                <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 12, color: '#6B7280', marginTop: 2 }}>
+                  {selectedTag?.item?.brand ?? 'Designer'} • ₹{selectedTag?.item?.purchasePrice ?? 3500}
+                </Text>
+              </View>
+              <Pressable onPress={() => setSelectedTag(null)} hitSlop={8} style={{ padding: 6, borderRadius: 9999, backgroundColor: colors.paper }}>
+                <X color={colors.black} size={16} weight="bold" />
+              </Pressable>
+            </View>
+
+            <View style={{ gap: 10 }}>
+              <Pressable
+                onPress={() => selectedTag && handleAddTagToCloset(selectedTag)}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 16, backgroundColor: colors.bentoMintLight }}
+              >
+                <CoatHanger color={colors.bentoMint} size={20} weight="bold" />
+                <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 14, color: colors.black }}>
+                  Add to My Closet
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => selectedTag && handleAddTagToWishlist(selectedTag)}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 16, backgroundColor: colors.bentoRoseSoft }}
+              >
+                <Heart color="#EC4899" size={20} weight="fill" />
+                <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 14, color: colors.black }}>
+                  Save to Wishlist
+                </Text>
+              </Pressable>
+            </View>
           </Pressable>
         </Pressable>
       </Modal>

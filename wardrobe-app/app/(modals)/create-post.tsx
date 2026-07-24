@@ -18,6 +18,7 @@ import { usePostStore } from '../../store/postStore';
 import { NBButton, useToast } from '../../components/ui';
 import { ScreenHeader } from '../../components/profile/ScreenHeader';
 import { colors, radii } from '../../lib/theme';
+import { ShoppableTag } from '../../types/post';
 
 type Step = 'photo' | 'caption';
 
@@ -92,16 +93,25 @@ export default function CreatePostModal() {
     }
     setPosting(true);
 
+    const taggedItemsList = wardrobeItems.filter((i) => taggedItemIds.includes(i.id));
+    const mappedTags: ShoppableTag[] = taggedItemsList.map((item, index) => ({
+      id: `tag-${item.id}-${Date.now()}`,
+      itemId: item.id,
+      item: item,
+      x: 0.3 + (index * 0.25),
+      y: 0.4 + (index * 0.2),
+    }));
+
     addPost({
       id: `local-${Date.now()}`,
       user: {
-        username: me?.username ?? 'you',
-        avatarUrl: me?.avatar,
-        isVerified: me?.isVerified ?? false,
+        username: me?.username ?? 'drip_user',
+        avatarUrl: me?.avatar ?? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600',
+        isVerified: me?.isVerified ?? true,
       },
       images: [imageUri],
       caption: caption.trim() || undefined,
-      tags: [],
+      tags: mappedTags,
       likeCount: 0,
       commentCount: 0,
       isLiked: false,

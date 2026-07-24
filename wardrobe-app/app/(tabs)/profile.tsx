@@ -2,91 +2,24 @@ import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { Gear, TShirt, Trash, CoatHanger } from 'phosphor-react-native';
+import { Gear, BookmarkSimple, ChartPie, Fire, Sparkle, Camera, Rows, Tag } from 'phosphor-react-native';
 import { ProfileHeader } from '../../components/profile/ProfileHeader';
 import { ProfilePostGrid } from '../../components/profile/ProfilePostGrid';
 import { UserListModal } from '../../components/profile/UserListModal';
-import { StatsStrip } from '../../components/profile/StatsStrip';
-import { NBButton, NBCard, NBEmptyState } from '../../components/ui';
+import { NBCard, NBEmptyState } from '../../components/ui';
 import { useCurrentUser } from '../../hooks/useAuth';
 import { FollowListType, useProfileStats, useUserPosts } from '../../hooks/useProfile';
-import { SavedOutfit, useWardrobeStore } from '../../store/wardrobeStore';
+import { useWardrobeStore } from '../../store/wardrobeStore';
 import { usePostStore } from '../../store/postStore';
 import { colors, radii } from '../../lib/theme';
 import { OutfitPost } from '../../types/post';
 
-type ProfileTab = 'posts' | 'looks' | 'closet';
-
-function SavedLookCard({ outfit, onDelete }: { outfit: SavedOutfit; onDelete: (id: string) => void }) {
-  const itemIdsJson = JSON.stringify(outfit.items.map((i) => i.id));
-
-  return (
-    <NBCard style={{ marginBottom: 14, padding: 16 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-        <View>
-          <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 16, color: colors.black }}>
-            {outfit.name}
-          </Text>
-          <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 11, color: '#9CA3AF', marginTop: 2 }}>
-            {outfit.items.length} Items • Created {new Date(outfit.createdAt).toLocaleDateString()}
-          </Text>
-        </View>
-        <Pressable onPress={() => onDelete(outfit.id)} hitSlop={8} style={{ padding: 6, borderRadius: 9999, backgroundColor: colors.paper }}>
-          <Trash color="#EF4444" size={16} weight="bold" />
-        </Pressable>
-      </View>
-
-      {/* Item thumbnails */}
-      <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
-        {outfit.items.map((item, i) => (
-          <View
-            key={item.id || i}
-            style={{
-              width: 58,
-              height: 58,
-              borderRadius: 14,
-              overflow: 'hidden',
-              backgroundColor: colors.paper,
-              borderWidth: 1,
-              borderColor: colors.bentoBorder,
-            }}
-          >
-            {item.imageUrl ? (
-              <Image source={{ uri: item.imageUrl }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
-            ) : (
-              <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 2 }}>
-                <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 8, color: '#666', textAlign: 'center' }}>
-                  {item.name}
-                </Text>
-              </View>
-            )}
-          </View>
-        ))}
-      </View>
-
-      <View style={{ flexDirection: 'row', gap: 8 }}>
-        <NBButton
-          label="Post Look"
-          variant="primary"
-          style={{ flex: 1 }}
-          onPress={() => router.push({ pathname: '/(modals)/create-post', params: { outfitId: outfit.id } })}
-        />
-        <NBButton
-          label="Remix"
-          variant="secondary"
-          onPress={() => router.push({ pathname: '/(modals)/make-outfit', params: { itemIds: itemIdsJson } })}
-        />
-      </View>
-    </NBCard>
-  );
-}
+type ProfileTab = 'posts' | 'saved' | 'analytics';
 
 export default function ProfileScreen() {
   const me = useCurrentUser();
   const username = me?.username;
   const wardrobeItems = useWardrobeStore((s) => s.items);
-  const outfits = useWardrobeStore((s) => s.outfits);
-  const removeOutfit = useWardrobeStore((s) => s.removeOutfit);
   const localPosts = usePostStore((s) => s.localPosts);
 
   const { data: stats } = useProfileStats(username);
@@ -123,6 +56,7 @@ export default function ProfileScreen() {
   }));
 
   const combinedPosts: OutfitPost[] = [...mappedLocalPosts, ...(serverPosts ?? [])];
+  const savedPosts = combinedPosts.filter((p) => p.isSaved);
 
   if (!user) {
     return (
@@ -156,23 +90,16 @@ export default function ProfileScreen() {
         }
       />
 
-      <StatsStrip
-        stats={{
-          posts: combinedPosts.length,
-          outfits: Math.max(stats?.outfits ?? 0, outfits.length),
-          wardrobeValue: stats?.wardrobeValue ?? 18000,
-        }}
-      />
-
-      {/* Sub-Tabs Bar */}
+      {/* Distinct Profile Sub-Tabs Bar */}
       <View style={{ paddingHorizontal: 14, marginBottom: 12 }}>
         <View style={{ flexDirection: 'row', backgroundColor: colors.white, borderRadius: 9999, padding: 4, borderWidth: 1, borderColor: colors.bentoBorder }}>
           {[
-            { id: 'posts' as ProfileTab, label: `Posts (${combinedPosts.length})` },
-            { id: 'looks' as ProfileTab, label: `Looks (${outfits.length})` },
-            { id: 'closet' as ProfileTab, label: `Closet Items (${wardrobeItems.length})` },
+            { id: 'posts' as ProfileTab, label: `Posts (${combinedPosts.length})`, icon: Camera },
+            { id: 'saved' as ProfileTab, label: `Saved (${savedPosts.length})`, icon: BookmarkSimple },
+            { id: 'analytics' as ProfileTab, label: `Style DNA`, icon: ChartPie },
           ].map((tab) => {
             const isActive = activeTab === tab.id;
+            const Icon = tab.icon;
             return (
               <Pressable
                 key={tab.id}
@@ -181,10 +108,14 @@ export default function ProfileScreen() {
                   flex: 1,
                   paddingVertical: 8,
                   alignItems: 'center',
+                  justifyContent: 'center',
                   borderRadius: 9999,
                   backgroundColor: isActive ? colors.black : 'transparent',
+                  flexDirection: 'row',
+                  gap: 4,
                 }}
               >
+                <Icon color={isActive ? colors.white : '#6B7280'} size={14} weight={isActive ? 'bold' : 'regular'} />
                 <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 11, color: isActive ? colors.white : '#6B7280' }}>
                   {tab.label}
                 </Text>
@@ -194,6 +125,7 @@ export default function ProfileScreen() {
         </View>
       </View>
 
+      {/* Posts Tab */}
       {activeTab === 'posts' && (
         <ProfilePostGrid
           posts={combinedPosts}
@@ -204,52 +136,125 @@ export default function ProfileScreen() {
         />
       )}
 
-      {activeTab === 'looks' && (
+      {/* Saved Inspiration Tab */}
+      {activeTab === 'saved' && (
         <ScrollView contentContainerStyle={{ paddingHorizontal: 14, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
-          {outfits.length === 0 ? (
+          {savedPosts.length === 0 ? (
             <NBEmptyState
-              icon={<TShirt color="#EC4899" size={36} weight="bold" />}
-              title="No Saved Looks"
-              body="Build your first outfit combination to see it here"
-              cta="Build Look"
-              onCta={() => router.push('/(modals)/make-outfit')}
+              icon={<BookmarkSimple color={colors.bentoPurple} size={36} weight="bold" />}
+              title="No Saved Inspiration"
+              body="Bookmark looks from Home or Explore to build your aesthetic moodboard"
+              cta="Explore Trends"
+              onCta={() => router.push('/(tabs)/explore')}
             />
           ) : (
-            outfits.map((outfit) => (
-              <SavedLookCard key={outfit.id} outfit={outfit} onDelete={removeOutfit} />
-            ))
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+              {savedPosts.map((post) => (
+                <Pressable
+                  key={post.id}
+                  onPress={() => router.push({ pathname: '/(modals)/post/[id]', params: { id: post.id } })}
+                  style={{
+                    width: '48%',
+                    backgroundColor: colors.white,
+                    borderRadius: radii.bento,
+                    overflow: 'hidden',
+                    borderWidth: 1,
+                    borderColor: colors.bentoBorder,
+                  }}
+                >
+                  <Image source={{ uri: post.imageUrl }} style={{ width: '100%', height: 160 }} contentFit="cover" />
+                  <View style={{ padding: 10 }}>
+                    <Text numberOfLines={1} style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 12, color: colors.black }}>
+                      @{post.author.username}
+                    </Text>
+                    <Text numberOfLines={1} style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 11, color: '#6B7280', marginTop: 2 }}>
+                      {post.caption || 'Saved Look'}
+                    </Text>
+                  </View>
+                </Pressable>
+              ))}
+            </View>
           )}
         </ScrollView>
       )}
 
-      {activeTab === 'closet' && (
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 14, paddingBottom: 40, flexDirection: 'row', flexWrap: 'wrap', gap: 10 }} showsVerticalScrollIndicator={false}>
-          {wardrobeItems.length === 0 ? (
-            <View style={{ flex: 1, width: '100%' }}>
-              <NBEmptyState
-                icon={<CoatHanger color={colors.bentoPurple} size={36} weight="bold" />}
-                title="Closet is empty"
-                body="Add items to your wardrobe to see them here"
-                cta="Add Item"
-                onCta={() => router.push('/(modals)/add-item')}
-              />
+      {/* Style DNA & Vibe Analytics Tab */}
+      {activeTab === 'analytics' && (
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 14, paddingBottom: 40, gap: 14 }} showsVerticalScrollIndicator={false}>
+          {/* Aesthetic Style Breakdown */}
+          <NBCard style={{ padding: 16 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+              <Sparkle color={colors.bentoPurple} size={18} weight="fill" />
+              <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 15, color: colors.black }}>
+                Aesthetic Breakdown
+              </Text>
             </View>
-          ) : (
-            wardrobeItems.map((item) => (
-              <Pressable
-                key={item.id}
-                onPress={() => router.push({ pathname: '/(modals)/item-detail/[id]', params: { id: item.id } })}
-                style={{ width: '48%', backgroundColor: colors.white, borderRadius: radii.bento, overflow: 'hidden', borderWidth: 1, borderColor: colors.bentoBorder, padding: 10 }}
-              >
-                <Image source={{ uri: item.imageUrl }} style={{ width: '100%', height: 130, borderRadius: 12, marginBottom: 8 }} contentFit="cover" />
-                <Text numberOfLines={1} style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 13, color: colors.black }}>{item.name}</Text>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
-                  <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 11, color: '#6B7280' }}>{item.brand || item.category}</Text>
-                  {item.purchasePrice && <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 12, color: colors.bentoPurple }}>₹{item.purchasePrice}</Text>}
+
+            <View style={{ gap: 10 }}>
+              {[
+                { label: 'Streetwear / Oversized', pct: 65, color: colors.bentoPurple },
+                { label: 'Clean Girl Minimalist', pct: 25, color: '#EC4899' },
+                { label: 'Vintage / Thrifted', pct: 10, color: '#D97706' },
+              ].map((style) => (
+                <View key={style.label} style={{ gap: 4 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 12, color: colors.black }}>{style.label}</Text>
+                    <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 12, color: style.color }}>{style.pct}%</Text>
+                  </View>
+                  <View style={{ height: 8, backgroundColor: colors.paper, borderRadius: 4, overflow: 'hidden' }}>
+                    <View style={{ width: `${style.pct}%`, height: '100%', backgroundColor: style.color, borderRadius: 4 }} />
+                  </View>
                 </View>
-              </Pressable>
-            ))
-          )}
+              ))}
+            </View>
+          </NBCard>
+
+          {/* Color Palette Chips */}
+          <NBCard style={{ padding: 16 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <Rows color={colors.black} size={18} weight="bold" />
+              <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 15, color: colors.black }}>
+                Signature Color Palette
+              </Text>
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+              {[
+                { hex: '#18181B', name: 'Onyx Black', pct: '45%' },
+                { hex: '#F5F2EB', name: 'Cream Ivory', pct: '30%' },
+                { hex: '#556B2F', name: 'Olive Green', pct: '15%' },
+                { hex: '#D97706', name: 'Amber Rust', pct: '10%' },
+              ].map((c) => (
+                <View key={c.hex} style={{ flex: 1, alignItems: 'center', gap: 4 }}>
+                  <View style={{ width: '100%', height: 38, borderRadius: 12, backgroundColor: c.hex, borderWidth: 1, borderColor: colors.bentoBorder }} />
+                  <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 10, color: colors.black }}>{c.pct}</Text>
+                </View>
+              ))}
+            </View>
+          </NBCard>
+
+          {/* Drip Score & CPW Badges */}
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <NBCard style={{ flex: 1, padding: 16, alignItems: 'center', justifyContent: 'center' }}>
+              <Fire color="#EF4444" size={26} weight="fill" />
+              <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 20, color: colors.black, marginTop: 4 }}>
+                92 / 100
+              </Text>
+              <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 11, color: '#6B7280', marginTop: 2 }}>
+                Drip Index Score 🔥
+              </Text>
+            </NBCard>
+
+            <NBCard style={{ flex: 1, padding: 16, alignItems: 'center', justifyContent: 'center' }}>
+              <Tag color={colors.bentoPurple} size={26} weight="bold" />
+              <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 20, color: colors.black, marginTop: 4 }}>
+                ₹340
+              </Text>
+              <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 11, color: '#6B7280', marginTop: 2 }}>
+                Avg Cost-Per-Wear
+              </Text>
+            </NBCard>
+          </View>
         </ScrollView>
       )}
 

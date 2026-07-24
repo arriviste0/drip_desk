@@ -8,12 +8,14 @@ import { colors, radii } from '../../lib/theme';
 import { ExplorePinMenu, DiscoverPin } from '../../components/explore/ExplorePinMenu';
 import { useToast } from '../../components/ui';
 import { useWardrobeStore } from '../../store/wardrobeStore';
+import { usePostStore } from '../../store/postStore';
 import { WardrobeItem } from '../../types/item';
+import { rankPosts } from '../../lib/recommendation';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const COL_W = (SCREEN_W - 3 * 12) / 2;
 
-const DISCOVER_POSTS: DiscoverPin[] = [
+const INITIAL_DISCOVER_POSTS: DiscoverPin[] = [
   { id: 'd1', image: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=700', username: 'nova_fits', likes: 2410, tags: ['#streetwear', '#OOTD'] },
   { id: 'd2', image: 'https://images.unsplash.com/photo-1496747611176-843222e1e57c?q=80&w=700', username: 'chloe_styles', likes: 3120, tags: ['#minimalist', '#neutrals'] },
   { id: 'd3', image: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?q=80&w=700', username: 'nova_fits', likes: 1840, tags: ['#streetstyle', '#vintage'] },
@@ -52,7 +54,7 @@ function DiscoverCard({
   onLongPress: (pin: DiscoverPin) => void;
 }) {
   const heights = [240, 290, 260, 310, 270, 300];
-  const h = heights[parseInt(post.id.replace('d', '')) % heights.length] ?? 270;
+  const h = heights[parseInt(post.id.replace(/[^0-9]/g, '')) || 0 % heights.length] ?? 270;
 
   return (
     <Pressable
@@ -124,11 +126,28 @@ export default function ExploreScreen() {
   const addItem = useWardrobeStore((s) => s.addItem);
   const addToWishlist = useWardrobeStore((s) => s.addToWishlist);
   const addOutfit = useWardrobeStore((s) => s.addOutfit);
+  const localPosts = usePostStore((s) => s.localPosts);
 
   const [query, setQuery] = useState('');
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [selectedPin, setSelectedPin] = useState<DiscoverPin | null>(null);
   const [menuVisible, setMenuVisible] = useState(false);
+
+  // Convert local user posts into DiscoverPin items for real-time Explore propagation
+  const userDiscoverPins: DiscoverPin[] = useMemo(() => {
+    return localPosts.map((p) => ({
+      id: p.id,
+      image: p.images[0] ?? 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=700',
+      username: p.user.username,
+      likes: p.likeCount,
+      tags: ['#OOTD', '#streetwear'],
+      createdAt: p.createdAt,
+    }));
+  }, [localPosts]);
+
+  const allPosts = useMemo(() => {
+    return [...userDiscoverPins, ...INITIAL_DISCOVER_POSTS];
+  }, [userDiscoverPins]);
 
   const handlePressPin = useCallback((pin: DiscoverPin) => {
     router.push({ pathname: '/(modals)/post/[id]', params: { id: pin.id } });
@@ -199,8 +218,9 @@ export default function ExploreScreen() {
     router.push({ pathname: '/(modals)/post/[id]', params: { id: pin.id } });
   }, []);
 
+  // Filter & rank posts using recommendation system
   const filtered = useMemo(() => {
-    let posts = DISCOVER_POSTS;
+    let posts = allPosts;
     if (activeTag) {
       posts = posts.filter((p) => p.tags.some((t) => t.toLowerCase() === activeTag.toLowerCase()));
     }
@@ -212,8 +232,8 @@ export default function ExploreScreen() {
           p.tags.some((t) => t.toLowerCase().includes(q))
       );
     }
-    return posts;
-  }, [query, activeTag]);
+    return rankPosts(posts, activeTag);
+  }, [allPosts, query, activeTag]);
 
   const leftCol = filtered.filter((_, i) => i % 2 === 0);
   const rightCol = filtered.filter((_, i) => i % 2 !== 0);
@@ -339,7 +359,7 @@ export default function ExploreScreen() {
           }}
         >
           <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 15, color: colors.black, flex: 1 }}>
-            {activeTag ? activeTag : 'Trending Inspiration'}
+            {activeTag ? activeTag : 'Recommended Trends'}
           </Text>
           <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 12, color: '#9CA3AF' }}>
             Hold for options

@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { FlashList } from '@shopify/flash-list';
@@ -13,6 +13,8 @@ import { colors, radii } from '../../lib/theme';
 import api from '../../lib/axios';
 import { useQuery } from '@tanstack/react-query';
 import { useWardrobeStore } from '../../store/wardrobeStore';
+import { usePostStore } from '../../store/postStore';
+import { rankPosts } from '../../lib/recommendation';
 
 interface StoryUser {
   id: string;
@@ -59,55 +61,61 @@ function StoryAvatar({ user }: { user: StoryUser }) {
         )}
       </View>
       <Text
-        numberOfLines={1}
         style={{
-          fontFamily: 'SpaceGrotesk-Medium',
+          fontFamily: 'SpaceGrotesk-Bold',
           fontSize: 10,
           color: colors.black,
           marginTop: 4,
-          maxWidth: 60,
         }}
       >
-        @{user.username}
+        @{user.username.length > 8 ? user.username.slice(0, 8) + '…' : user.username}
       </Text>
     </Pressable>
   );
 }
 
-function BentoHeaderSection() {
+function HomeHeader() {
   const { data: users } = useQuery<StoryUser[]>({
-    queryKey: ['stories'],
+    queryKey: ['story-users'],
     queryFn: async () => {
-      const { data } = await api.get('/api/users/following');
-      return data;
+      try {
+        const { data } = await api.get<StoryUser[]>('/api/users/trending');
+        return data;
+      } catch {
+        return [
+          { id: '1', username: 'nova_fits', avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600' },
+          { id: '2', username: 'chloe_styles', avatarUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?q=80&w=600' },
+          { id: '3', username: 'alex_drip', avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=600' },
+        ];
+      }
     },
   });
 
   return (
-    <View style={{ paddingHorizontal: 14, paddingTop: 10, paddingBottom: 16, gap: 12 }}>
-      {/* Bento Highlight Box — Blush Pink AI Style Match Hero */}
+    <View style={{ paddingHorizontal: 12, paddingBottom: 16, gap: 14 }}>
+      {/* Hero Bento AI Style Match Banner */}
       <Pressable
         onPress={() => router.push('/(modals)/ai-matcher')}
         style={{
           backgroundColor: colors.bentoBlush,
           borderRadius: radii.bento,
-          padding: 18,
+          padding: 16,
           borderWidth: 1,
-          borderColor: 'rgba(244, 114, 182, 0.18)',
+          borderColor: colors.bentoBorder,
           shadowColor: '#000',
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.04,
-          shadowRadius: 10,
-          elevation: 2,
+          shadowOffset: { width: 0, height: 6 },
+          shadowOpacity: 0.05,
+          shadowRadius: 12,
+          elevation: 3,
         }}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
             <View
               style={{
-                width: 42,
-                height: 42,
-                borderRadius: 21,
+                width: 44,
+                height: 44,
+                borderRadius: 22,
                 backgroundColor: colors.white,
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -115,6 +123,7 @@ function BentoHeaderSection() {
                 shadowOffset: { width: 0, height: 2 },
                 shadowOpacity: 0.08,
                 shadowRadius: 6,
+                elevation: 2,
               }}
             >
               <Sparkle color="#EC4899" size={22} weight="fill" />
@@ -184,7 +193,14 @@ export default function HomeScreen() {
   const { top } = useSafeAreaInsets();
   const showToast = useToast();
   const addToWishlist = useWardrobeStore((s) => s.addToWishlist);
-  const { posts, fetchNextPage, hasNextPage, isFetchingNextPage, isRefetching, refetch, isLoading } = useFeed();
+  const localPosts = usePostStore((s) => s.localPosts);
+  const { posts: serverPosts, fetchNextPage, hasNextPage, isFetchingNextPage, isRefetching, refetch } = useFeed();
+
+  // Combine server posts + local user posts and rank using recommendation engine
+  const rankedFeedPosts = useMemo(() => {
+    const combined = [...localPosts, ...(serverPosts ?? [])];
+    return rankPosts(combined);
+  }, [localPosts, serverPosts]);
 
   const handleEndReached = useCallback(() => {
     if (hasNextPage && !isFetchingNextPage) fetchNextPage();
@@ -195,7 +211,7 @@ export default function HomeScreen() {
   }, []);
 
   const handleSave = useCallback((id: string) => {
-    const post = posts.find((p) => p.id === id);
+    const post = rankedFeedPosts.find((p) => p.id === id);
     if (post) {
       addToWishlist({
         id: 'saved_' + id + '_' + Date.now(),
@@ -210,7 +226,7 @@ export default function HomeScreen() {
     }
     api.post('/api/posts/' + id + '/save').catch(() => {});
     showToast('Saved look to Wishlist!', 'success');
-  }, [posts, addToWishlist, showToast]);
+  }, [rankedFeedPosts, addToWishlist, showToast]);
 
   const handleComment = useCallback((id: string) => {
     router.push({ pathname: '/(modals)/post/[id]', params: { id } });
@@ -241,72 +257,64 @@ export default function HomeScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.paper }}>
-      {/* Top Bento Header */}
+      {/* Bento Top Header */}
       <View
         style={{
           paddingTop: top + 10,
-          paddingBottom: 12,
+          paddingBottom: 14,
           paddingHorizontal: 16,
           backgroundColor: colors.white,
           borderBottomWidth: 1,
           borderBottomColor: colors.bentoBorder,
           flexDirection: 'row',
           alignItems: 'center',
+          justifyContent: 'space-between',
         }}
       >
-        <Text
-          style={{
-            fontFamily: 'SpaceGrotesk-Bold',
-            fontSize: 22,
-            color: colors.black,
-            letterSpacing: -0.5,
-            flex: 1,
-          }}
-        >
-          Drip Deck
+        <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 24, color: colors.black, letterSpacing: -0.6 }}>
+          DripDeck
         </Text>
-        <View
+
+        <Pressable
+          onPress={() => router.push('/(modals)/create-post')}
           style={{
-            backgroundColor: colors.bentoBlush,
-            paddingVertical: 5,
-            paddingHorizontal: 12,
+            backgroundColor: colors.black,
+            paddingHorizontal: 14,
+            paddingVertical: 8,
             borderRadius: 9999,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 6,
           }}
         >
-          <Text
-            style={{
-              fontFamily: 'SpaceGrotesk-Bold',
-              fontSize: 11,
-              color: colors.black,
-              letterSpacing: 0.5,
-            }}
-          >
-            Feed
+          <Sparkle color={colors.white} size={14} weight="bold" />
+          <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 12, color: colors.white }}>
+            + Post Look
           </Text>
-        </View>
+        </Pressable>
       </View>
 
       <FlashList
-        data={posts}
+        data={rankedFeedPosts}
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
+        ListHeaderComponent={HomeHeader}
         onEndReached={handleEndReached}
         onEndReachedThreshold={0.5}
-        refreshing={isRefetching}
         onRefresh={refetch}
-        ListHeaderComponent={<BentoHeaderSection />}
+        refreshing={isRefetching}
+        contentContainerStyle={{ paddingTop: 12, paddingBottom: 40 }}
         ListEmptyComponent={
-          !isLoading ? (
+          <View style={{ padding: 40, alignItems: 'center' }}>
             <NBEmptyState
               icon={<Users color={colors.bentoPurple} size={36} weight="bold" />}
-              title="No posts yet"
-              body="Follow creators to see their outfits in your feed"
-              cta="Explore Styles"
-              onCta={() => router.push('/(tabs)/explore')}
+              title="Your feed is quiet"
+              body="Post an outfit or follow creators to populate your feed"
+              cta="+ Post Outfit"
+              onCta={() => router.push('/(modals)/create-post')}
             />
-          ) : null
+          </View>
         }
-        showsVerticalScrollIndicator={false}
       />
     </View>
   );

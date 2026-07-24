@@ -1,11 +1,12 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import { FlashList } from '@shopify/flash-list';
 import { Image } from 'expo-image';
-import { ImageSquare } from 'phosphor-react-native';
+import { ImageSquare, DotsThreeVertical } from 'phosphor-react-native';
 import { NBEmptyState } from '../ui';
 import { StatsStrip } from './StatsStrip';
+import { PostActionMenu } from './PostActionMenu';
 import { ProfileStats } from '../../hooks/useProfile';
 import { OutfitPost } from '../../types/post';
 import { colors } from '../../lib/theme';
@@ -18,11 +19,13 @@ interface ProfilePostGridProps {
   emptyBody?: string;
 }
 
-function PostThumb({ post }: { post: OutfitPost }) {
+function PostThumb({ post, onLongPress }: { post: OutfitPost; onLongPress: (post: OutfitPost) => void }) {
   return (
     <View style={{ flex: 1, aspectRatio: 1, padding: 4 }}>
       <Pressable
         onPress={() => router.push(`/(modals)/post/${post.id}`)}
+        onLongPress={() => onLongPress(post)}
+        delayLongPress={250}
         style={{
           flex: 1,
           borderRadius: 16,
@@ -43,6 +46,20 @@ function PostThumb({ post }: { post: OutfitPost }) {
           contentFit="cover"
           transition={150}
         />
+        <Pressable
+          onPress={() => onLongPress(post)}
+          hitSlop={6}
+          style={{
+            position: 'absolute',
+            top: 6,
+            right: 6,
+            backgroundColor: 'rgba(0,0,0,0.45)',
+            padding: 4,
+            borderRadius: 9999,
+          }}
+        >
+          <DotsThreeVertical color={colors.white} size={14} weight="bold" />
+        </Pressable>
       </Pressable>
     </View>
   );
@@ -55,29 +72,43 @@ export function ProfilePostGrid({
   emptyTitle = 'No posts yet',
   emptyBody = 'Outfit posts will show up here',
 }: ProfilePostGridProps) {
+  const [selectedPost, setSelectedPost] = useState<OutfitPost | null>(null);
+
+  const handleLongPress = useCallback((post: OutfitPost) => {
+    setSelectedPost(post);
+  }, []);
+
   const renderItem = useCallback(
-    ({ item }: { item: OutfitPost }) => <PostThumb post={item} />,
-    []
+    ({ item }: { item: OutfitPost }) => <PostThumb post={item} onLongPress={handleLongPress} />,
+    [handleLongPress]
   );
 
   return (
-    <FlashList
-      data={posts}
-      numColumns={3}
-      renderItem={renderItem}
-      keyExtractor={(item) => item.id}
-      ListHeaderComponent={<StatsStrip stats={stats} />}
-      ListEmptyComponent={
-        !loading ? (
-          <NBEmptyState
-            icon={<ImageSquare color={colors.bentoPurple} size={36} weight="bold" />}
-            title={emptyTitle}
-            body={emptyBody}
-          />
-        ) : null
-      }
-      contentContainerStyle={{ paddingHorizontal: 10, paddingBottom: 24 }}
-      showsVerticalScrollIndicator={false}
-    />
+    <View style={{ flex: 1 }}>
+      <FlashList
+        data={posts}
+        numColumns={3}
+        renderItem={renderItem}
+        keyExtractor={(item) => item.id}
+        ListHeaderComponent={<StatsStrip stats={stats} />}
+        ListEmptyComponent={
+          !loading ? (
+            <NBEmptyState
+              icon={<ImageSquare color={colors.bentoPurple} size={36} weight="bold" />}
+              title={emptyTitle}
+              body={emptyBody}
+            />
+          ) : null
+        }
+        contentContainerStyle={{ paddingHorizontal: 10, paddingBottom: 24 }}
+        showsVerticalScrollIndicator={false}
+      />
+
+      <PostActionMenu
+        post={selectedPost}
+        visible={selectedPost !== null}
+        onDismiss={() => setSelectedPost(null)}
+      />
+    </View>
   );
 }

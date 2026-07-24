@@ -12,14 +12,16 @@ import {
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
-import { BookmarkSimple, Camera, ChartPie, ChatCircle, CoatHanger, Cube, Export, Heart, PaperPlaneRight, Sparkle } from 'phosphor-react-native';
+import { BookmarkSimple, Camera, ChartPie, ChatCircle, CoatHanger, Cube, DotsThreeVertical, Export, Heart, PaperPlaneRight, Sparkle } from 'phosphor-react-native';
 import { useQuery } from '@tanstack/react-query';
 import { NBAvatar, NBBadge, NBButton, useToast } from '../../../components/ui';
 import { ScreenHeader } from '../../../components/profile/ScreenHeader';
 import { UserListModal } from '../../../components/profile/UserListModal';
+import { PostActionMenu } from '../../../components/profile/PostActionMenu';
 import { Interactive3DMannequin } from '../../../components/feed/Interactive3DMannequin';
 import { OutfitFitDiagrams } from '../../../components/feed/OutfitFitDiagrams';
 import { useWardrobeStore } from '../../../store/wardrobeStore';
+import { usePostStore } from '../../../store/postStore';
 import { colors, radii } from '../../../lib/theme';
 import api from '../../../lib/axios';
 import { OutfitPost } from '../../../types/post';
@@ -40,11 +42,12 @@ export default function PostDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const showToast = useToast();
   const addItem = useWardrobeStore((s) => s.addItem);
-  const addToWishlist = useWardrobeStore((s) => s.addToWishlist);
+  const localPosts = usePostStore((s) => s.localPosts);
 
   const [viewMode, setViewMode] = useState<PostViewMode>('photo');
   const [showUsersModal, setShowUsersModal] = useState(false);
   const [usersModalType, setUsersModalType] = useState<'followers' | 'following'>('followers');
+  const [showPostAction, setShowPostAction] = useState(false);
 
   const [commentText, setCommentText] = useState('');
   const [comments, setComments] = useState<Comment[]>([
@@ -56,9 +59,12 @@ export default function PostDetailScreen() {
   const [likeCount, setLikeCount] = useState(1842);
   const [isSaved, setIsSaved] = useState(false);
 
-  const { data: post } = useQuery({
+  // Find local post if available
+  const localPost = localPosts.find((p) => p.id === id);
+
+  const { data: serverPost } = useQuery({
     queryKey: ['post', id],
-    enabled: !!id,
+    enabled: !!id && !localPost,
     queryFn: async () => {
       try {
         const { data } = await api.get<OutfitPost>(`/api/posts/${id}`);
@@ -68,6 +74,32 @@ export default function PostDetailScreen() {
       }
     },
   });
+
+  const activePost: OutfitPost | null = localPost
+    ? {
+        id: localPost.id,
+        author: {
+          id: 'me',
+          username: localPost.user.username,
+          email: '',
+          displayName: localPost.user.username,
+          avatar: localPost.user.avatarUrl,
+          followersCount: 0,
+          followingCount: 0,
+          wardrobeCount: 0,
+          createdAt: localPost.createdAt,
+        },
+        imageUrl: localPost.images[0] ?? '',
+        caption: localPost.caption,
+        tags: localPost.tags,
+        hashtags: [],
+        likesCount: localPost.likeCount,
+        commentsCount: localPost.commentCount,
+        isLiked: localPost.isLiked,
+        isSaved: localPost.isSaved,
+        createdAt: localPost.createdAt,
+      }
+    : serverPost ?? null;
 
   function handleToggleLike() {
     setIsLiked((prev) => {
@@ -107,7 +139,14 @@ export default function PostDetailScreen() {
       style={{ flex: 1, backgroundColor: colors.paper }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <ScreenHeader title="Look Details & Activity" />
+      <ScreenHeader
+        title="Look Details & Activity"
+        right={
+          <Pressable onPress={() => setShowPostAction(true)} hitSlop={8} style={{ padding: 4 }}>
+            <DotsThreeVertical color={colors.black} size={20} weight="bold" />
+          </Pressable>
+        }
+      />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
         {/* User Author Header */}
@@ -122,13 +161,13 @@ export default function PostDetailScreen() {
             }}
           >
             <Pressable
-              onPress={() => router.push({ pathname: '/(modals)/user-profile/[username]', params: { username: post?.author?.username ?? 'nova_fits' } })}
+              onPress={() => router.push({ pathname: '/(modals)/user-profile/[username]', params: { username: activePost?.author?.username ?? 'drip_user' } })}
               style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}
             >
-              <NBAvatar uri={post?.author?.avatar ?? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600'} size="sm" isVerified={true} />
+              <NBAvatar uri={activePost?.author?.avatar ?? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600'} size="sm" isVerified={true} />
               <View>
                 <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 15, color: colors.black }}>
-                  {post?.author?.displayName ?? post?.author?.username ?? 'nova_fits'}
+                  {activePost?.author?.displayName ?? activePost?.author?.username ?? 'drip_user'}
                 </Text>
                 <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 11, color: '#9CA3AF' }}>
                   Posted 2h ago
@@ -138,7 +177,7 @@ export default function PostDetailScreen() {
 
             <View style={{ backgroundColor: colors.bentoLavender, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 9999 }}>
               <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 11, color: colors.bentoPurple }}>
-                @nova_fits
+                @{activePost?.author?.username ?? 'drip_user'}
               </Text>
             </View>
           </View>
@@ -151,7 +190,7 @@ export default function PostDetailScreen() {
               <OutfitFitDiagrams height={SCREEN_W * 1.1} width={SCREEN_W} />
             ) : (
               <Image
-                source={{ uri: post?.imageUrl ?? 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=700' }}
+                source={{ uri: activePost?.imageUrl ?? 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=700' }}
                 style={{ width: '100%', height: '100%' }}
                 contentFit="cover"
                 transition={200}
@@ -270,50 +309,11 @@ export default function PostDetailScreen() {
             </Pressable>
           </View>
 
-          {/* Instagram-Style "Liked by" and "Saved by" Interactive Pill Rows */}
-          <View style={{ paddingHorizontal: 16, paddingTop: 12, gap: 6 }}>
-            <Pressable
-              onPress={() => { setUsersModalType('followers'); setShowUsersModal(true); }}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 8,
-                backgroundColor: colors.bentoRoseSoft,
-                paddingVertical: 8,
-                paddingHorizontal: 12,
-                borderRadius: 9999,
-              }}
-            >
-              <Heart color="#EC4899" size={14} weight="fill" />
-              <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 12, color: colors.black }}>
-                Liked by <Text style={{ fontFamily: 'SpaceGrotesk-Bold' }}>@nova_fits</Text>, <Text style={{ fontFamily: 'SpaceGrotesk-Bold' }}>@chloe_styles</Text> and <Text style={{ fontFamily: 'SpaceGrotesk-Bold' }}>1,840 others</Text>
-              </Text>
-            </Pressable>
-
-            <Pressable
-              onPress={() => { setUsersModalType('following'); setShowUsersModal(true); }}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 8,
-                backgroundColor: colors.bentoLavender,
-                paddingVertical: 8,
-                paddingHorizontal: 12,
-                borderRadius: 9999,
-              }}
-            >
-              <BookmarkSimple color={colors.bentoPurple} size={14} weight="fill" />
-              <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 12, color: colors.black }}>
-                Saved by <Text style={{ fontFamily: 'SpaceGrotesk-Bold' }}>@chloe_styles</Text> and <Text style={{ fontFamily: 'SpaceGrotesk-Bold' }}>320 others</Text>
-              </Text>
-            </Pressable>
-          </View>
-
           {/* Caption */}
-          <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
+          <View style={{ paddingHorizontal: 16, paddingTop: 14 }}>
             <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 14, color: colors.black, lineHeight: 20 }}>
-              <Text style={{ fontFamily: 'SpaceGrotesk-Bold' }}>{post?.author?.username ?? 'nova_fits'} </Text>
-              {post?.caption ?? 'Tokyo Streetwear Energy 🖤 Vintage leather bomber paired with wide parachute cargo pants #streetwear #OOTD'}
+              <Text style={{ fontFamily: 'SpaceGrotesk-Bold' }}>@{activePost?.author?.username ?? 'drip_user'} </Text>
+              {activePost?.caption ?? 'Oversized Vintage Bomber & Cargo Parachute Fit 🖤 #streetwear #OOTD'}
             </Text>
           </View>
         </View>
@@ -457,12 +457,19 @@ export default function PostDetailScreen() {
         </Pressable>
       </View>
 
-      {/* User List Modal for Liked By / Saved By */}
+      {/* User List Modal */}
       <UserListModal
         visible={showUsersModal}
-        username={post?.author?.username ?? 'nova_fits'}
+        username={activePost?.author?.username ?? 'drip_user'}
         type={usersModalType}
         onClose={() => setShowUsersModal(false)}
+      />
+
+      {/* Edit & Delete Post Action Menu */}
+      <PostActionMenu
+        post={activePost}
+        visible={showPostAction}
+        onDismiss={() => setShowPostAction(false)}
       />
     </KeyboardAvoidingView>
   );

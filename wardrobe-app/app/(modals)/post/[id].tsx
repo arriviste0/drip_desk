@@ -143,7 +143,9 @@ export default function PostDetailScreen() {
         title="Look Details & Activity"
         right={
           <Pressable onPress={() => setShowPostAction(true)} hitSlop={8} style={{ padding: 4 }}>
-            <DotsThreeVertical color={colors.black} size={20} weight="bold" />
+            <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 13, color: colors.black }}>
+              Options
+            </Text>
           </Pressable>
         }
       />

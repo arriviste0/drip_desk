@@ -466,8 +466,6 @@ export default function AddItemModal() {
         <View style={{ width: 24 }} />
       </View>
 
-      <StepDots step={step} />
-
       {/* Step 1 */}
       {step === 1 && (
         <ScrollView

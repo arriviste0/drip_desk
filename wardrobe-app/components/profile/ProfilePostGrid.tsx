@@ -46,20 +46,6 @@ function PostThumb({ post, onLongPress }: { post: OutfitPost; onLongPress: (post
           contentFit="cover"
           transition={150}
         />
-        <Pressable
-          onPress={() => onLongPress(post)}
-          hitSlop={6}
-          style={{
-            position: 'absolute',
-            top: 6,
-            right: 6,
-            backgroundColor: 'rgba(0,0,0,0.45)',
-            padding: 4,
-            borderRadius: 9999,
-          }}
-        >
-          <DotsThreeVertical color={colors.white} size={14} weight="bold" />
-        </Pressable>
       </Pressable>
     </View>
   );

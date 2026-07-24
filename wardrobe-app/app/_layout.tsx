@@ -46,13 +46,14 @@ export default function RootLayout() {
 
       try {
         const token = await SecureStore.getItemAsync(JWT_KEY);
-        if (token) {
+        if (token && !token.startsWith('mock-token-')) {
           const { data } = await api.get('/api/auth/me', {
             headers: { Authorization: `Bearer ${token}` },
           });
           await login(token, data);
           router.replace('/(tabs)');
         } else {
+          await logout();
           router.replace('/(auth)/welcome');
         }
       } catch {

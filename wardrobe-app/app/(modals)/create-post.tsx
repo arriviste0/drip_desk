@@ -11,22 +11,34 @@ import {
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import { Camera, X, CheckCircle, Tag } from 'phosphor-react-native';
+import { Camera, X, CheckCircle, Tag, Plus, ShirtFolded } from 'phosphor-react-native';
 import { useAuthStore } from '../../store/authStore';
 import { useWardrobeStore } from '../../store/wardrobeStore';
 import { usePostStore } from '../../store/postStore';
-import { NBButton, useToast } from '../../components/ui';
+import { NBButton, useToast, NBInput } from '../../components/ui';
 import { ScreenHeader } from '../../components/profile/ScreenHeader';
 import { colors, radii } from '../../lib/theme';
 import { ShoppableTag } from '../../types/post';
+import { WardrobeItem } from '../../types/item';
+
+type Category = 'tops' | 'bottoms' | 'shoes' | 'outerwear' | 'accessories';
 
 type Step = 'photo' | 'caption';
+
+const CATEGORIES: { id: Category; label: string }[] = [
+  { id: 'tops', label: 'Tops' },
+  { id: 'bottoms', label: 'Bottoms' },
+  { id: 'shoes', label: 'Shoes' },
+  { id: 'outerwear', label: 'Outerwear' },
+  { id: 'accessories', label: 'Accessories' },
+];
 
 export default function CreatePostModal() {
   const { outfitId, itemIds } = useLocalSearchParams<{ outfitId?: string; itemIds?: string }>();
   const me = useAuthStore((s) => s.user);
   const addPost = usePostStore((s) => s.addPost);
   const wardrobeItems = useWardrobeStore((s) => s.items);
+  const addItem = useWardrobeStore((s) => s.addItem);
   const outfits = useWardrobeStore((s) => s.outfits);
   const showToast = useToast();
 
@@ -36,6 +48,12 @@ export default function CreatePostModal() {
   const [taggedItemIds, setTaggedItemIds] = useState<string[]>([]);
   const [showItemPicker, setShowItemPicker] = useState(false);
   const [posting, setPosting] = useState(false);
+
+  // Quick Add Item to Closet state
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [newItemName, setNewItemName] = useState('');
+  const [newItemCategory, setNewItemCategory] = useState<Category>('tops');
+  const [newItemPrice, setNewItemPrice] = useState('');
 
   useEffect(() => {
     if (outfitId) {
@@ -86,11 +104,45 @@ export default function CreatePostModal() {
     );
   }
 
+  function handleQuickAddToCloset() {
+    if (!newItemName.trim()) {
+      showToast('Please enter an item name', 'error');
+      return;
+    }
+
+    const createdItem: WardrobeItem = {
+      id: `item_${Date.now()}`,
+      name: newItemName.trim(),
+      category: newItemCategory,
+      imageUrl: imageUri ?? 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=700',
+      purchasePrice: Number(newItemPrice) || undefined,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      wearCount: 0,
+    };
+
+    addItem(createdItem);
+    setTaggedItemIds((prev) => [...prev, createdItem.id]);
+    setNewItemName('');
+    setNewItemPrice('');
+    setShowQuickAdd(false);
+    setShowItemPicker(true);
+    showToast(`Added ${createdItem.name} to My Closet & tagged! 👕🏷️`, 'success');
+  }
+
   async function handlePost() {
     if (!imageUri) {
       showToast('Please pick an outfit photo first', 'info');
       return;
     }
+
+    // MANDATORY GARMENT TAGGING VALIDATION
+    if (taggedItemIds.length === 0) {
+      showToast('Tag at least 1 closet item to share a post! 🏷️', 'error');
+      setShowItemPicker(true);
+      return;
+    }
+
     setPosting(true);
 
     const taggedItemsList = wardrobeItems.filter((i) => taggedItemIds.includes(i.id));
@@ -238,7 +290,7 @@ export default function CreatePostModal() {
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <Tag color={colors.bentoPurple} size={18} weight="bold" />
                 <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 14, color: colors.black }}>
-                  Tag Closet Items ({taggedItems.length})
+                  Tag Closet Items <Text style={{ color: colors.pink }}>*</Text> ({taggedItems.length})
                 </Text>
               </View>
               <Pressable onPress={() => setShowItemPicker((p) => !p)}>
@@ -248,7 +300,7 @@ export default function CreatePostModal() {
               </Pressable>
             </View>
 
-            {taggedItems.length > 0 && (
+            {taggedItems.length > 0 ? (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, flexDirection: 'row' }}>
                 {taggedItems.map((item) => (
                   <View
@@ -258,12 +310,12 @@ export default function CreatePostModal() {
                       alignItems: 'center',
                       gap: 6,
                       backgroundColor: colors.bentoLavender,
-                      paddingVertical: 4,
-                      paddingHorizontal: 10,
+                      paddingVertical: 6,
+                      paddingHorizontal: 12,
                       borderRadius: 9999,
                     }}
                   >
-                    <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 11, color: colors.bentoPurple }}>
+                    <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 12, color: colors.bentoPurple }}>
                       {item.name}
                     </Text>
                     <Pressable onPress={() => toggleTag(item.id)} hitSlop={6}>
@@ -272,35 +324,115 @@ export default function CreatePostModal() {
                   </View>
                 ))}
               </ScrollView>
+            ) : (
+              <View style={{ backgroundColor: colors.bentoRoseSoft, borderRadius: 12, padding: 10, marginTop: 4 }}>
+                <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 12, color: '#BE185D' }}>
+                  ⚠️ Required: Tag at least 1 item from your closet to publish
+                </Text>
+              </View>
             )}
 
-            {/* Closet Picker list */}
+            {/* Closet Picker List */}
             {showItemPicker && (
-              <View style={{ marginTop: 12, maxHeight: 180 }}>
-                <ScrollView nestedScrollEnabled>
-                  {wardrobeItems.map((item) => {
-                    const isTagged = taggedItemIds.includes(item.id);
-                    return (
-                      <Pressable
-                        key={item.id}
-                        onPress={() => toggleTag(item.id)}
-                        style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          paddingVertical: 8,
-                          gap: 10,
-                          borderBottomWidth: 1,
-                          borderBottomColor: colors.bentoBorder,
-                        }}
-                      >
-                        <Image source={{ uri: item.imageUrl }} style={{ width: 32, height: 32, borderRadius: 8 }} />
-                        <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 13, color: colors.black, flex: 1 }}>
-                          {item.name}
-                        </Text>
-                        {isTagged && <CheckCircle color={colors.bentoPurple} size={18} weight="fill" />}
-                      </Pressable>
-                    );
-                  })}
+              <View style={{ marginTop: 12 }}>
+                {/* Button to Add New Item directly to Closet */}
+                <Pressable
+                  onPress={() => setShowQuickAdd((p) => !p)}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    backgroundColor: colors.bentoMintLight,
+                    paddingVertical: 10,
+                    borderRadius: 9999,
+                    marginBottom: 12,
+                    borderWidth: 1,
+                    borderColor: colors.bentoMint,
+                  }}
+                >
+                  <Plus color={colors.bentoMint} size={16} weight="bold" />
+                  <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 13, color: colors.bentoMint }}>
+                    + Add New Item to Closet
+                  </Text>
+                </Pressable>
+
+                {/* Inline Quick Add Item Form */}
+                {showQuickAdd && (
+                  <View style={{ backgroundColor: colors.paper, padding: 14, borderRadius: 16, marginBottom: 12, gap: 10, borderWidth: 1, borderColor: colors.bentoBorder }}>
+                    <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 13, color: colors.black }}>
+                      Quick Add Garment Item
+                    </Text>
+                    <NBInput
+                      placeholder="Item Name (e.g. Oversized Leather Jacket)"
+                      value={newItemName}
+                      onChangeText={setNewItemName}
+                    />
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+                      {CATEGORIES.map((cat) => (
+                        <Pressable
+                          key={cat.id}
+                          onPress={() => setNewItemCategory(cat.id)}
+                          style={{
+                            paddingVertical: 6,
+                            paddingHorizontal: 12,
+                            borderRadius: 9999,
+                            backgroundColor: newItemCategory === cat.id ? colors.black : colors.white,
+                            borderWidth: 1,
+                            borderColor: colors.bentoBorder,
+                          }}
+                        >
+                          <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 11, color: newItemCategory === cat.id ? colors.white : colors.black }}>
+                            {cat.label}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </ScrollView>
+                    <NBInput
+                      placeholder="Price in ₹ (Optional)"
+                      value={newItemPrice}
+                      onChangeText={setNewItemPrice}
+                      keyboardType="numeric"
+                    />
+                    <NBButton label="Save to Closet & Tag" variant="primary" onPress={handleQuickAddToCloset} fullWidth />
+                  </View>
+                )}
+
+                <ScrollView nestedScrollEnabled style={{ maxHeight: 180 }}>
+                  {wardrobeItems.length === 0 ? (
+                    <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 12, color: '#6B7280', textAlign: 'center', marginVertical: 12 }}>
+                      No items in closet. Tap "+ Add New Item to Closet" above!
+                    </Text>
+                  ) : (
+                    wardrobeItems.map((item) => {
+                      const isTagged = taggedItemIds.includes(item.id);
+                      return (
+                        <Pressable
+                          key={item.id}
+                          onPress={() => toggleTag(item.id)}
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            paddingVertical: 8,
+                            gap: 10,
+                            borderBottomWidth: 1,
+                            borderBottomColor: colors.bentoBorder,
+                          }}
+                        >
+                          <Image source={{ uri: item.imageUrl }} style={{ width: 34, height: 34, borderRadius: 8 }} />
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 13, color: colors.black }}>
+                              {item.name}
+                            </Text>
+                            <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 11, color: '#6B7280' }}>
+                              {item.category}
+                            </Text>
+                          </View>
+                          {isTagged && <CheckCircle color={colors.bentoPurple} size={20} weight="fill" />}
+                        </Pressable>
+                      );
+                    })
+                  )}
                 </ScrollView>
               </View>
             )}

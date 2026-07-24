@@ -248,7 +248,7 @@ export default function ProfileScreen() {
             <NBCard style={{ flex: 1, padding: 16, alignItems: 'center', justifyContent: 'center' }}>
               <Tag color={colors.bentoPurple} size={26} weight="bold" />
               <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 20, color: colors.black, marginTop: 4 }}>
-                ₹340
+                {wardrobeItems.length === 0 ? '₹0' : '₹340'}
               </Text>
               <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 11, color: '#6B7280', marginTop: 2 }}>
                 Avg Cost-Per-Wear

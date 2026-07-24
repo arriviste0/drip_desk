@@ -50,7 +50,7 @@ export function StatsStrip({ stats }: StatsStripProps) {
 
   // Compute live closet value from items array
   const calculatedClosetValue = items.reduce(
-    (sum, item) => sum + (item.purchasePrice ? item.purchasePrice : 2500),
+    (sum, item) => sum + (Number(item.purchasePrice) || 0),
     0
   );
 

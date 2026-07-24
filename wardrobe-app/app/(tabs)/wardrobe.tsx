@@ -346,7 +346,7 @@ export default function WardrobeScreen() {
     }
   }, [moveWishlistToCloset, removeItem, removeFromWishlist, deleteMutation, showToast]);
 
-  const closetValue = items.reduce((sum, item) => sum + (item.purchasePrice ? item.purchasePrice : 2500), 0);
+  const closetValue = items.reduce((sum, item) => sum + (Number(item.purchasePrice) || 0), 0);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.paper }}>

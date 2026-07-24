@@ -14,6 +14,7 @@ import {
 import { router, useLocalSearchParams } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
+import { makeRedirectUri } from 'expo-auth-session';
 import { Eye, EyeSlash, WarningCircle, CheckCircle, Sparkle } from 'phosphor-react-native';
 import { useAuthStore } from '../../store/authStore';
 import { colors, radii } from '../../lib/theme';
@@ -65,6 +66,9 @@ export function SingleAuthScreen({ initialMode = 'signin' }: { initialMode?: Aut
     webClientId: GOOGLE_WEB_CLIENT_ID || fallbackClientId,
     iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || fallbackClientId,
     androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || fallbackClientId,
+    redirectUri: makeRedirectUri({
+      native: 'https://auth.expo.io/@pranshu_ptl/wardrobe-app',
+    }),
   });
 
   useEffect(() => {

@@ -7,7 +7,7 @@ import { ProfileHeader } from '../../../components/profile/ProfileHeader';
 import { ProfilePostGrid } from '../../../components/profile/ProfilePostGrid';
 import { UserListModal } from '../../../components/profile/UserListModal';
 import { NBButton } from '../../../components/ui';
-import { useUserProfile, useFollowMutation, useUserPosts, FollowListType } from '../../../hooks/useProfile';
+import { useUserProfile, useFollowMutation, useUserPosts, useProfileStats, FollowListType, ProfileStats } from '../../../hooks/useProfile';
 import { useCurrentUser } from '../../../hooks/useAuth';
 import { usePostStore } from '../../../store/postStore';
 import { OutfitPost } from '../../../types/post';
@@ -79,6 +79,7 @@ export default function UserProfileModal() {
 
   const { data: serverUser, isLoading } = useUserProfile(username);
   const { data: serverPosts } = useUserPosts(username);
+  const { data: serverStats } = useProfileStats(username);
   const followMutation = useFollowMutation(username ?? '');
 
   const [listType, setListType] = useState<FollowListType | null>(null);
@@ -114,6 +115,13 @@ export default function UserProfileModal() {
   }));
 
   const allUserPosts: OutfitPost[] = [...mappedLocalPosts, ...(serverPosts ?? [])];
+
+  const creatorValue = (creator?.items ?? []).reduce((sum, item) => sum + (item.purchasePrice || 0), 0);
+  const profileStats: ProfileStats = {
+    posts: serverStats?.posts ?? allUserPosts.length,
+    outfits: serverStats?.outfits ?? (creator?.looks?.length || 0),
+    wardrobeValue: creatorValue > 0 ? creatorValue : (serverStats?.wardrobeValue ?? 0),
+  };
 
   if (isLoading && !user) {
     return (
@@ -219,7 +227,7 @@ export default function UserProfileModal() {
           </View>
 
           {activeTab === 'posts' && (
-            <ProfilePostGrid posts={allUserPosts} loading={false} />
+            <ProfilePostGrid posts={allUserPosts} stats={profileStats} loading={false} />
           )}
 
           {activeTab === 'looks' && (

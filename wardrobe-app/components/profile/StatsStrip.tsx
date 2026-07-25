@@ -54,9 +54,10 @@ export function StatsStrip({ stats }: StatsStripProps) {
     0
   );
 
-  const displayPosts = (stats?.posts ?? 0) + localPosts.length;
+  // stats.posts comes directly from MongoDB query for this username
+  const displayPosts = stats?.posts ?? localPosts.length;
   const displayOutfits = Math.max(stats?.outfits ?? 0, outfits.length);
-  const displayValue = items.length === 0 ? 0 : Math.max(stats?.wardrobeValue ?? 0, calculatedClosetValue);
+  const displayValue = items.length === 0 ? 0 : (stats?.wardrobeValue ?? calculatedClosetValue);
 
   return (
     <View

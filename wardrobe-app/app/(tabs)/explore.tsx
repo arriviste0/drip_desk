@@ -10,8 +10,10 @@ import { NBAvatar, useToast } from '../../components/ui';
 import { useWardrobeStore } from '../../store/wardrobeStore';
 import { usePostStore } from '../../store/postStore';
 import { useAuthStore } from '../../store/authStore';
+import { useQuery } from '@tanstack/react-query';
 import { WardrobeItem } from '../../types/item';
 import { rankPosts } from '../../lib/recommendation';
+import api from '../../lib/axios';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const COL_W = (SCREEN_W - 3 * 12) / 2;
@@ -172,13 +174,36 @@ export default function ExploreScreen() {
     return Array.from(map.values());
   }, [currentUser, localPosts]);
 
+  const { data: searchResults } = useQuery({
+    queryKey: ['users-search', query],
+    queryFn: async () => {
+      if (!query.trim()) return [];
+      const res = await api.get('/api/users', { params: { q: query.trim() } });
+      return res.data;
+    },
+    enabled: query.trim().length > 0,
+  });
+
   const matchingCreators = useMemo(() => {
     if (!query.trim()) return [];
     const q = query.toLowerCase().replace('@', '');
-    return registeredCreators.filter(
+    const localMatches = registeredCreators.filter(
       (c) => c.username.toLowerCase().includes(q) || c.name.toLowerCase().includes(q)
     );
-  }, [registeredCreators, query]);
+    
+    const apiMatches = (searchResults || []).map((u: any) => ({
+      username: u.username,
+      name: u.displayName || u.username,
+      avatar: u.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600',
+      style: 'Fashion Creator',
+    }));
+
+    // Merge & deduplicate by username
+    const map = new Map();
+    localMatches.forEach(m => map.set(m.username, m));
+    apiMatches.forEach((m: any) => map.set(m.username, m));
+    return Array.from(map.values());
+  }, [registeredCreators, query, searchResults]);
 
   const handlePressPin = useCallback((pin: DiscoverPin) => {
     router.push({ pathname: '/(modals)/post/[id]', params: { id: pin.id } });

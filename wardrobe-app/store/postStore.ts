@@ -8,6 +8,7 @@ interface PostState {
   deletePost: (id: string) => void;
   toggleLike: (id: string) => void;
   toggleSave: (id: string) => void;
+  clearPosts: () => void;
 }
 
 const INITIAL_USER_POSTS: FeedPost[] = [];
@@ -37,4 +38,5 @@ export const usePostStore = create<PostState>((set) => ({
         p.id === id ? { ...p, isSaved: !p.isSaved } : p
       ),
     })),
+  clearPosts: () => set({ localPosts: [] }),
 }));

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -18,6 +19,7 @@ import { usePostStore } from '../../store/postStore';
 import { NBButton, useToast, NBInput } from '../../components/ui';
 import { ScreenHeader } from '../../components/profile/ScreenHeader';
 import { colors, radii } from '../../lib/theme';
+import api from '../../lib/axios';
 import { ShoppableTag } from '../../types/post';
 import { WardrobeItem } from '../../types/item';
 
@@ -41,6 +43,7 @@ export default function CreatePostModal() {
   const addItem = useWardrobeStore((s) => s.addItem);
   const outfits = useWardrobeStore((s) => s.outfits);
   const showToast = useToast();
+  const queryClient = useQueryClient();
 
   const [step, setStep] = useState<Step>('photo');
   const [imageUri, setImageUri] = useState<string | null>(null);
@@ -154,24 +157,60 @@ export default function CreatePostModal() {
       y: 0.4 + (index * 0.2),
     }));
 
-    addPost({
-      id: `local-${Date.now()}`,
-      user: {
-        username: me?.username ?? 'drip_user',
-        avatarUrl: me?.avatar ?? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600',
-        isVerified: me?.isVerified ?? true,
-      },
+    const postPayload = {
       images: [imageUri],
-      caption: caption.trim() || undefined,
+      caption: caption.trim() || '',
       tags: mappedTags,
-      likeCount: 0,
-      commentCount: 0,
-      isLiked: false,
-      isSaved: false,
-      createdAt: new Date().toISOString(),
-    });
+    };
 
-    showToast('Outfit posted to feed! 🔥', 'success');
+    try {
+      // Save to server (MongoDB)
+      const { data: serverPost } = await api.post('/api/posts', postPayload);
+
+      // Also add to local store for instant UI update
+      addPost({
+        id: serverPost.id || `local-${Date.now()}`,
+        user: {
+          username: me?.username ?? 'drip_user',
+          avatarUrl: me?.avatar ?? undefined,
+          isVerified: me?.isVerified ?? false,
+        },
+        images: [imageUri],
+        caption: caption.trim() || undefined,
+        tags: mappedTags,
+        likeCount: 0,
+        commentCount: 0,
+        isLiked: false,
+        isSaved: false,
+        createdAt: serverPost.createdAt || new Date().toISOString(),
+      });
+
+      // Invalidate feed + profile caches so data refreshes from DB
+      queryClient.invalidateQueries({ queryKey: ['feed'] });
+      queryClient.invalidateQueries({ queryKey: ['profile'] });
+
+      showToast('Outfit posted to feed! 🔥', 'success');
+    } catch (err) {
+      // Fallback: save locally even if server fails
+      addPost({
+        id: `local-${Date.now()}`,
+        user: {
+          username: me?.username ?? 'drip_user',
+          avatarUrl: me?.avatar ?? undefined,
+          isVerified: me?.isVerified ?? false,
+        },
+        images: [imageUri],
+        caption: caption.trim() || undefined,
+        tags: mappedTags,
+        likeCount: 0,
+        commentCount: 0,
+        isLiked: false,
+        isSaved: false,
+        createdAt: new Date().toISOString(),
+      });
+      showToast('Posted locally (server unavailable)', 'info');
+    }
+
     setPosting(false);
     router.replace('/(tabs)');
   }

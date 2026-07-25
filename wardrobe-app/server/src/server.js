@@ -121,53 +121,127 @@ const server = http.createServer(async (request, response) => {
       visionModel: process.env.GROQ_VISION_MODEL || 'meta-llama/llama-4-scout-17b-16e-instruct',
     });
   }
+  function toDbItem(doc) {
+    return {
+      id: doc._id.toString(),
+      userId: doc.userId,
+      name: doc.name || '',
+      brand: doc.brand,
+      category: doc.category || 'tops',
+      itemType: doc.itemType,
+      color: doc.color || [],
+      primaryColor: doc.primaryColor,
+      secondaryColor: doc.secondaryColor,
+      size: doc.size,
+      material: doc.material,
+      pattern: doc.pattern,
+      seasons: doc.seasons || [],
+      occasions: doc.occasions || [],
+      imageUrl: doc.imageUrl || '',
+      wearCount: doc.wearCount || 0,
+      purchasePrice: doc.purchasePrice,
+      currency: doc.currency || 'USD',
+      notes: doc.notes,
+      productUrl: doc.productUrl,
+      isWishlist: Boolean(doc.isWishlist),
+      createdAt: doc.createdAt || new Date().toISOString(),
+      updatedAt: doc.updatedAt || new Date().toISOString(),
+    };
+  }
+
   if (request.method === 'GET' && request.url === '/api/wardrobe') {
     try {
-      const items = await listWardrobeItems();
-      return sendJson(response, 200, items.filter(item => !item.isWishlist));
+      const user = await getAuthUser(request);
+      if (!user) return sendJson(response, 200, []);
+      const db = await getDb();
+      const items = await db.collection('items').find({ userId: user._id.toString(), isWishlist: { $ne: true } }).toArray();
+      return sendJson(response, 200, items.map(toDbItem));
     } catch (error) {
-      console.error(error);
+      console.error('[wardrobe-get]', error);
       return sendJson(response, 500, { message: 'Could not load wardrobe' });
     }
   }
+
   if (request.method === 'GET' && request.url === '/api/wishlist') {
     try {
-      const items = await listWardrobeItems();
-      return sendJson(response, 200, items.filter(item => item.isWishlist));
+      const user = await getAuthUser(request);
+      if (!user) return sendJson(response, 200, []);
+      const db = await getDb();
+      const items = await db.collection('items').find({ userId: user._id.toString(), isWishlist: true }).toArray();
+      return sendJson(response, 200, items.map(toDbItem));
     } catch (error) {
-      console.error(error);
+      console.error('[wishlist-get]', error);
       return sendJson(response, 500, { message: 'Could not load wishlist' });
     }
   }
+
   if (request.method === 'POST' && request.url === '/api/items') {
     try {
-      return sendJson(response, 201, await createWardrobeItem(await readJson(request)));
+      const user = await getAuthUser(request);
+      const body = await readJson(request);
+      const db = await getDb();
+      const now = new Date().toISOString();
+      const doc = {
+        userId: user ? user._id.toString() : 'guest',
+        name: String(body.name || '').trim(),
+        brand: body.brand ? String(body.brand).trim() : undefined,
+        category: String(body.category || 'tops').toLowerCase(),
+        itemType: body.itemType ? String(body.itemType).trim() : undefined,
+        color: Array.isArray(body.color) ? body.color : [],
+        primaryColor: body.primaryColor ? String(body.primaryColor).trim() : undefined,
+        secondaryColor: body.secondaryColor ? String(body.secondaryColor).trim() : undefined,
+        size: body.size ? String(body.size).trim() : undefined,
+        material: body.material ? String(body.material).trim() : undefined,
+        pattern: body.pattern ? String(body.pattern).trim() : undefined,
+        seasons: Array.isArray(body.seasons) ? body.seasons : [],
+        occasions: Array.isArray(body.occasions) ? body.occasions : [],
+        imageUrl: String(body.imageUrl || '').trim(),
+        wearCount: 0,
+        purchasePrice: Number.isFinite(Number(body.purchasePrice)) ? Number(body.purchasePrice) : undefined,
+        currency: String(body.currency || 'USD').toUpperCase(),
+        notes: body.notes ? String(body.notes).trim() : undefined,
+        productUrl: body.productUrl ? String(body.productUrl).trim() : undefined,
+        isWishlist: Boolean(body.isWishlist),
+        createdAt: now,
+        updatedAt: now,
+      };
+      const { insertedId } = await db.collection('items').insertOne(doc);
+      if (user && !body.isWishlist) {
+        await db.collection('users').updateOne({ _id: user._id }, { $inc: { wardrobeCount: 1 } });
+      }
+      return sendJson(response, 201, toDbItem({ _id: insertedId, ...doc }));
     } catch (error) {
-      const status = error instanceof RequestError ? error.status : 500;
-      if (status >= 500) console.error(error);
-      return sendJson(response, status, {
-        message: error instanceof RequestError ? error.message : 'Could not save wardrobe item',
-      });
+      console.error('[item-create]', error);
+      return sendJson(response, 500, { message: 'Could not save wardrobe item' });
     }
   }
 
   const itemsMatch = request.url.match(/^\/api\/items\/([^/]+)$/);
   if (itemsMatch) {
-    const id = itemsMatch[1];
+    const itemId = itemsMatch[1];
     if (request.method === 'PUT') {
       try {
-        return sendJson(response, 200, await updateWardrobeItem(id, await readJson(request)));
+        const body = await readJson(request);
+        const db = await getDb();
+        const query = ObjectId.isValid(itemId) ? { _id: new ObjectId(itemId) } : { _id: itemId };
+        await db.collection('items').updateOne(query, { $set: { ...body, updatedAt: new Date().toISOString() } });
+        const updated = await db.collection('items').findOne(query);
+        return sendJson(response, 200, updated ? toDbItem(updated) : { id: itemId, ...body });
       } catch (error) {
-        const status = error instanceof RequestError ? error.status : 500;
-        return sendJson(response, status, { message: error.message || 'Could not update item' });
+        console.error('[item-update]', error);
+        return sendJson(response, 500, { message: 'Could not update item' });
       }
     }
     if (request.method === 'DELETE') {
       try {
-        return sendJson(response, 200, await deleteWardrobeItem(id));
+        const db = await getDb();
+        const query = ObjectId.isValid(itemId) ? { _id: new ObjectId(itemId) } : { _id: itemId };
+        const existing = await db.collection('items').findOne(query);
+        await db.collection('items').deleteOne(query);
+        return sendJson(response, 200, existing ? toDbItem(existing) : { id: itemId });
       } catch (error) {
-        const status = error instanceof RequestError ? error.status : 500;
-        return sendJson(response, status, { message: error.message || 'Could not delete item' });
+        console.error('[item-delete]', error);
+        return sendJson(response, 500, { message: 'Could not delete item' });
       }
     }
   }
@@ -283,10 +357,76 @@ const server = http.createServer(async (request, response) => {
     }
   }
 
+  // ── Posts CRUD ─────────────────────────────────────────────────────────────
+  if (request.method === 'POST' && request.url === '/api/posts') {
+    try {
+      const user = await getAuthUser(request);
+      if (!user) return sendJson(response, 401, { message: 'Unauthorized' });
+      const body = await readJson(request);
+      const db = await getDb();
+      const now = new Date().toISOString();
+      const postDoc = {
+        userId: user._id.toString(),
+        username: user.username,
+        userAvatar: user.avatar || null,
+        userDisplayName: user.displayName || user.username,
+        isVerified: user.isVerified || false,
+        images: Array.isArray(body.images) ? body.images : [],
+        caption: body.caption ? String(body.caption).trim() : '',
+        tags: Array.isArray(body.tags) ? body.tags : [],
+        likeCount: 0,
+        commentCount: 0,
+        likedBy: [],
+        savedBy: [],
+        createdAt: now,
+        updatedAt: now,
+      };
+      const { insertedId } = await db.collection('posts').insertOne(postDoc);
+      return sendJson(response, 201, {
+        id: insertedId.toString(),
+        user: { username: user.username, avatarUrl: user.avatar, isVerified: user.isVerified || false },
+        images: postDoc.images,
+        caption: postDoc.caption,
+        tags: postDoc.tags,
+        likeCount: 0,
+        commentCount: 0,
+        isLiked: false,
+        isSaved: false,
+        createdAt: now,
+      });
+    } catch (error) {
+      console.error('[post-create]', error);
+      return sendJson(response, 500, { message: 'Could not create post' });
+    }
+  }
+
   // ── Feed ──────────────────────────────────────────────────────────────────
   if (request.method === 'GET' && (request.url === '/api/feed' || request.url?.startsWith('/api/feed?'))) {
-    const feedPosts = [];
-    return sendJson(response, 200, { posts: feedPosts, nextCursor: null });
+    try {
+      const authUser = await getAuthUser(request);
+      const db = await getDb();
+      const posts = await db.collection('posts').find({}).sort({ createdAt: -1 }).limit(100).toArray();
+      const feedPosts = posts.map((p) => {
+        const isLiked = authUser ? (p.likedBy || []).includes(authUser._id.toString()) : false;
+        const isSaved = authUser ? (p.savedBy || []).includes(authUser._id.toString()) : false;
+        return {
+          id: p._id.toString(),
+          user: { username: p.username, avatarUrl: p.userAvatar, isVerified: p.isVerified || false },
+          images: p.images || [],
+          caption: p.caption || '',
+          tags: p.tags || [],
+          likeCount: p.likeCount || 0,
+          commentCount: p.commentCount || 0,
+          isLiked,
+          isSaved,
+          createdAt: p.createdAt,
+        };
+      });
+      return sendJson(response, 200, { posts: feedPosts, nextCursor: null });
+    } catch (error) {
+      console.error('[feed-get]', error);
+      return sendJson(response, 200, { posts: [], nextCursor: null });
+    }
   }
 
   // ── Listings ───────────────────────────────────────────────────────────────
@@ -301,13 +441,108 @@ const server = http.createServer(async (request, response) => {
     return sendJson(response, 201, { id: 'order-stub', ok: true, message: 'Order placed (stub)' });
   }
 
-  // ── Post actions ───────────────────────────────────────────────────────────
+  // ── Single Post routes ────────────────────────────────────────────────────
+  const singlePostMatch = request.url.match(/^\/api\/posts\/([^/]+)$/);
+  if (singlePostMatch) {
+    const postId = singlePostMatch[1];
+    if (request.method === 'DELETE') {
+      try {
+        const authUser = await getAuthUser(request);
+        if (!authUser) return sendJson(response, 401, { message: 'Unauthorized' });
+        const db = await getDb();
+        const query = ObjectId.isValid(postId) ? { _id: new ObjectId(postId) } : { _id: postId };
+        const post = await db.collection('posts').findOne(query);
+        if (!post) return sendJson(response, 404, { message: 'Post not found' });
+        if (post.userId !== authUser._id.toString()) return sendJson(response, 403, { message: 'Not authorized' });
+        await db.collection('posts').deleteOne(query);
+        return sendJson(response, 200, { ok: true });
+      } catch (error) {
+        console.error('[post-delete]', error);
+        return sendJson(response, 500, { message: 'Could not delete post' });
+      }
+    }
+    if (request.method === 'PATCH') {
+      try {
+        const authUser = await getAuthUser(request);
+        if (!authUser) return sendJson(response, 401, { message: 'Unauthorized' });
+        const body = await readJson(request);
+        const db = await getDb();
+        const query = ObjectId.isValid(postId) ? { _id: new ObjectId(postId) } : { _id: postId };
+        const post = await db.collection('posts').findOne(query);
+        if (!post) return sendJson(response, 404, { message: 'Post not found' });
+        if (post.userId !== authUser._id.toString()) return sendJson(response, 403, { message: 'Not authorized' });
+        const updates = {};
+        if (body.caption !== undefined) updates.caption = String(body.caption).trim();
+        updates.updatedAt = new Date().toISOString();
+        await db.collection('posts').updateOne(query, { $set: updates });
+        return sendJson(response, 200, { ok: true });
+      } catch (error) {
+        console.error('[post-edit]', error);
+        return sendJson(response, 500, { message: 'Could not edit post' });
+      }
+    }
+  }
+
+  // ── Post actions (like/save/share/comment) ────────────────────────────────
   const postActionMatch = request.url.match(/^\/api\/posts\/([^/]+)\/(like|save|share|comment)$/);
   if (request.method === 'POST' && postActionMatch) {
-    return sendJson(response, 200, { ok: true });
+    const postId = postActionMatch[1];
+    const action = postActionMatch[2];
+    try {
+      const authUser = await getAuthUser(request);
+      if (!authUser) return sendJson(response, 200, { ok: true });
+      const db = await getDb();
+      const uid = authUser._id.toString();
+      const query = ObjectId.isValid(postId) ? { _id: new ObjectId(postId) } : { _id: postId };
+
+      if (action === 'like') {
+        const post = await db.collection('posts').findOne(query);
+        if (post) {
+          const alreadyLiked = (post.likedBy || []).includes(uid);
+          if (alreadyLiked) {
+            await db.collection('posts').updateOne(query, { $pull: { likedBy: uid }, $inc: { likeCount: -1 } });
+          } else {
+            await db.collection('posts').updateOne(query, { $addToSet: { likedBy: uid }, $inc: { likeCount: 1 } });
+          }
+        }
+      } else if (action === 'save') {
+        const post = await db.collection('posts').findOne(query);
+        if (post) {
+          const alreadySaved = (post.savedBy || []).includes(uid);
+          if (alreadySaved) {
+            await db.collection('posts').updateOne(query, { $pull: { savedBy: uid } });
+          } else {
+            await db.collection('posts').updateOne(query, { $addToSet: { savedBy: uid } });
+          }
+        }
+      }
+      return sendJson(response, 200, { ok: true });
+    } catch (error) {
+      console.error('[post-action]', error);
+      return sendJson(response, 200, { ok: true });
+    }
   }
 
   // ── User profiles ──────────────────────────────────────────────────────────
+  if (request.method === 'GET' && (request.url === '/api/users' || request.url.startsWith('/api/users?'))) {
+    try {
+      const parsedUrl = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
+      const q = parsedUrl.searchParams.get('q') || '';
+      const db = await getDb();
+      let query = {};
+      if (q.trim()) {
+        const regex = { $regex: q.trim(), $options: 'i' };
+        query = { $or: [{ username: regex }, { displayName: regex }] };
+      }
+      // Return top 50 users
+      const users = await db.collection('users').find(query).limit(50).toArray();
+      return sendJson(response, 200, users.map(toUser));
+    } catch (error) {
+      console.error('[users-search]', error);
+      return sendJson(response, 500, { message: 'Failed to search users' });
+    }
+  }
+
   // /api/users/following is a special top-level route (not a username)
   if (request.method === 'GET' && request.url === '/api/users/following') {
     return sendJson(response, 200, []);
@@ -381,43 +616,120 @@ const server = http.createServer(async (request, response) => {
 
   const userPostsMatch = request.url.match(/^\/api\/users\/([^/]+)\/posts$/);
   if (request.method === 'GET' && userPostsMatch) {
-    return sendJson(response, 200, []);
+    const uname = userPostsMatch[1];
+    try {
+      const authUser = await getAuthUser(request);
+      const db = await getDb();
+      const posts = await db.collection('posts').find({ username: uname }).sort({ createdAt: -1 }).toArray();
+      const mapped = posts.map((p) => {
+        const uid = authUser ? authUser._id.toString() : '';
+        return {
+          id: p._id.toString(),
+          author: {
+            id: p.userId,
+            username: p.username,
+            displayName: p.userDisplayName || p.username,
+            email: '',
+            avatar: p.userAvatar || null,
+            followersCount: 0,
+            followingCount: 0,
+            wardrobeCount: 0,
+            isVerified: p.isVerified || false,
+            createdAt: p.createdAt,
+          },
+          imageUrl: (p.images || [])[0] || '',
+          caption: p.caption || '',
+          tags: p.tags || [],
+          hashtags: [],
+          likesCount: p.likeCount || 0,
+          commentsCount: p.commentCount || 0,
+          isLiked: (p.likedBy || []).includes(uid),
+          isSaved: (p.savedBy || []).includes(uid),
+          createdAt: p.createdAt,
+        };
+      });
+      return sendJson(response, 200, mapped);
+    } catch (error) {
+      console.error('[user-posts]', error);
+      return sendJson(response, 200, []);
+    }
   }
 
   const userStatsMatch = request.url.match(/^\/api\/users\/([^/]+)\/stats$/);
   if (request.method === 'GET' && userStatsMatch) {
-    return sendJson(response, 200, {
-      posts: 0,
-      outfits: 0,
-      wardrobeValue: 0,
-    });
+    const uname = userStatsMatch[1];
+    try {
+      const db = await getDb();
+      const user = await db.collection('users').findOne({ username: uname });
+      const userId = user ? user._id.toString() : null;
+      const postCount = userId ? await db.collection('posts').countDocuments({ username: uname }) : 0;
+      const items = userId ? await db.collection('items').find({ userId, isWishlist: { $ne: true } }).toArray() : [];
+      const wardrobeValue = items.reduce((sum, item) => sum + (item.purchasePrice || 0), 0);
+      return sendJson(response, 200, {
+        posts: postCount,
+        outfits: 0,
+        wardrobeValue,
+      });
+    } catch (error) {
+      console.error('[user-stats]', error);
+      return sendJson(response, 200, { posts: 0, outfits: 0, wardrobeValue: 0 });
+    }
   }
 
   const userFollowersMatch = request.url.match(/^\/api\/users\/([^/]+)\/(followers|following)$/);
   if (request.method === 'GET' && userFollowersMatch) {
-    const username = userFollowersMatch[1];
-    const listType = userFollowersMatch[2];
-    if (listType === 'followers') {
-      return sendJson(response, 200, mockFollowers.filter((u) => u.username !== username && u.isFollowing));
+    try {
+      const username = userFollowersMatch[1];
+      const listType = userFollowersMatch[2];
+      const db = await getDb();
+      if (listType === 'followers') {
+        const follows = await db.collection('follows').find({ targetUsername: username }).toArray();
+        const followerIds = follows.map((f) => f.followerId);
+        const users = await db.collection('users').find({ _id: { $in: followerIds } }).toArray();
+        return sendJson(response, 200, users.map(toUser));
+      } else {
+        const user = await db.collection('users').findOne({ username });
+        if (!user) return sendJson(response, 200, []);
+        const follows = await db.collection('follows').find({ followerId: user._id }).toArray();
+        const targetUsernames = follows.map((f) => f.targetUsername);
+        const users = await db.collection('users').find({ username: { $in: targetUsernames } }).toArray();
+        return sendJson(response, 200, users.map(toUser));
+      }
+    } catch {
+      return sendJson(response, 200, []);
     }
-    return sendJson(response, 200, mockFollowing.filter((u) => u.username !== username));
   }
 
   const userFollowMatch = request.url.match(/^\/api\/users\/([^/]+)\/follow$/);
   if (userFollowMatch) {
     const targetUsername = userFollowMatch[1];
-    if (request.method === 'POST') {
-      if (!mockFollowing.some((u) => u.username === targetUsername)) {
-        mockFollowing.push(makeUser(`g-${targetUsername}`, targetUsername,
-          targetUsername.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())));
-        mockUser.followingCount = mockFollowing.length;
+    try {
+      const authUser = await getAuthUser(request);
+      if (!authUser) return sendJson(response, 401, { message: 'Unauthorized' });
+      const db = await getDb();
+
+      if (request.method === 'POST') {
+        const existing = await db.collection('follows').findOne({ followerId: authUser._id, targetUsername });
+        if (!existing) {
+          await db.collection('follows').insertOne({ followerId: authUser._id, targetUsername, createdAt: new Date().toISOString() });
+          await db.collection('users').updateOne({ _id: authUser._id }, { $inc: { followingCount: 1 } });
+          await db.collection('users').updateOne({ username: targetUsername }, { $inc: { followersCount: 1 } });
+        }
+        return sendJson(response, 200, { ok: true });
       }
-      return sendJson(response, 200, { ok: true });
-    }
-    if (request.method === 'DELETE') {
-      mockFollowing = mockFollowing.filter((u) => u.username !== targetUsername);
-      mockUser.followingCount = mockFollowing.length;
-      return sendJson(response, 200, { ok: true });
+
+      if (request.method === 'DELETE') {
+        const existing = await db.collection('follows').findOne({ followerId: authUser._id, targetUsername });
+        if (existing) {
+          await db.collection('follows').deleteOne({ _id: existing._id });
+          await db.collection('users').updateOne({ _id: authUser._id }, { $inc: { followingCount: -1 } });
+          await db.collection('users').updateOne({ username: targetUsername }, { $inc: { followersCount: -1 } });
+        }
+        return sendJson(response, 200, { ok: true });
+      }
+    } catch (err) {
+      console.error('[follow-mutation]', err);
+      return sendJson(response, 500, { message: 'Failed to update follow' });
     }
   }
 
@@ -429,11 +741,29 @@ const server = http.createServer(async (request, response) => {
   const userMatch = request.url.match(/^\/api\/users\/([^/]+)$/);
   if (request.method === 'GET' && userMatch) {
     const uname = userMatch[1];
-    const existing = [...mockFollowers, ...mockFollowing].find((u) => u.username === uname);
-    if (existing) return sendJson(response, 200, { ...existing, isFollowing: mockFollowing.some((u) => u.username === uname) });
+    try {
+      const authUser = await getAuthUser(request);
+      const db = await getDb();
+      const dbUser = await db.collection('users').findOne({ username: uname });
+      let isFollowing = false;
+      if (authUser) {
+        const followDoc = await db.collection('follows').findOne({ followerId: authUser._id, targetUsername: uname });
+        isFollowing = Boolean(followDoc);
+      }
+      if (dbUser) {
+        return sendJson(response, 200, {
+          ...toUser(dbUser),
+          isFollowing,
+        });
+      }
+    } catch (err) {
+      console.error('[user-profile]', err);
+    }
     return sendJson(response, 200, {
       ...makeUser(`u-${uname}`, uname, uname.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())),
-      isFollowing: mockFollowing.some((u) => u.username === uname),
+      followersCount: 0,
+      followingCount: 0,
+      isFollowing: false,
     });
   }
 

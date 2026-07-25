@@ -30,6 +30,7 @@ import { useWardrobeStore } from '../../store/wardrobeStore';
 import { WardrobeItem } from '../../types/item';
 import { Interactive3DMannequin } from './Interactive3DMannequin';
 import { OutfitFitDiagrams } from './OutfitFitDiagrams';
+import { PinToBoardModal } from '../modals/PinToBoardModal';
 
 const SCREEN_W = Dimensions.get('window').width;
 const CARD_MARGIN = 12;
@@ -89,6 +90,8 @@ function OutfitPostCardInner({
   const [likeCount, setLikeCount] = useState(post.likeCount ?? 0);
   const [isSaved, setIsSaved] = useState(post.isSaved ?? false);
 
+  const [showPinModal, setShowPinModal] = useState(false);
+
   useEffect(() => {
     setIsLiked(post.isLiked ?? false);
     setLikeCount(post.likeCount ?? 0);
@@ -106,7 +109,8 @@ function OutfitPostCardInner({
   }, [onLike, post.id]);
 
   const handleToggleSave = useCallback(() => {
-    setIsSaved((prev) => !prev);
+    setIsSaved(true);
+    setShowPinModal(true);
     onSave(post.id);
   }, [onSave, post.id]);
 
@@ -641,6 +645,15 @@ function OutfitPostCardInner({
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* Pin to Board Modal */}
+      <PinToBoardModal
+        visible={showPinModal}
+        itemId={post.id}
+        itemImage={post.images[0]}
+        itemTitle={post.caption || `Fit by @${post.user.username}`}
+        onDismiss={() => setShowPinModal(false)}
+      />
     </View>
   );
 }

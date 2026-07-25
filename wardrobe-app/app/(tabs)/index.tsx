@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { FlashList } from '@shopify/flash-list';
@@ -7,6 +7,7 @@ import { Sparkle, TrendUp, Users } from 'phosphor-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NBEmptyState, useToast } from '../../components/ui';
 import { OutfitPostCard } from '../../components/feed/OutfitPostCard';
+import { StoryViewerModal } from '../../components/feed/StoryViewerModal';
 import { useFeed } from '../../hooks/useFeed';
 import { FeedPost } from '../../types/post';
 import { colors, radii } from '../../lib/theme';
@@ -15,6 +16,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useWardrobeStore } from '../../store/wardrobeStore';
 import { usePostStore } from '../../store/postStore';
 import { rankPosts } from '../../lib/recommendation';
+import { useFollowStore } from '../../store/followStore';
 
 interface StoryUser {
   id: string;
@@ -22,10 +24,10 @@ interface StoryUser {
   avatarUrl?: string;
 }
 
-function StoryAvatar({ user }: { user: StoryUser }) {
+function StoryAvatar({ user, onPress }: { user: StoryUser; onPress: (user: StoryUser) => void }) {
   return (
     <Pressable
-      onPress={() => router.push({ pathname: '/(modals)/user-profile/[username]', params: { username: user.username } })}
+      onPress={() => onPress(user)}
       style={{ alignItems: 'center', marginHorizontal: 6 }}
     >
       <View
@@ -74,7 +76,7 @@ function StoryAvatar({ user }: { user: StoryUser }) {
   );
 }
 
-function HomeHeader() {
+function HomeHeader({ onStoryPress }: { onStoryPress: (user: StoryUser) => void }) {
   const { data: users } = useQuery<StoryUser[]>({
     queryKey: ['story-users'],
     queryFn: async () => {
@@ -174,7 +176,7 @@ function HomeHeader() {
           <FlashList
             data={users}
             horizontal
-            renderItem={({ item }) => <StoryAvatar user={item} />}
+            renderItem={({ item }) => <StoryAvatar user={item} onPress={onStoryPress} />}
             keyExtractor={(item) => item.id}
             contentContainerStyle={{ paddingHorizontal: 10 }}
             showsHorizontalScrollIndicator={false}
@@ -190,13 +192,19 @@ export default function HomeScreen() {
   const showToast = useToast();
   const addToWishlist = useWardrobeStore((s) => s.addToWishlist);
   const localPosts = usePostStore((s) => s.localPosts);
+  const followingUsernames = useFollowStore((s) => s.followingUsernames);
+  const [selectedStoryUser, setSelectedStoryUser] = useState<StoryUser | null>(null);
+
   const { posts: serverPosts, fetchNextPage, hasNextPage, isFetchingNextPage, isRefetching, refetch } = useFeed();
 
-  // Combine server posts + local user posts and rank using recommendation engine
+  // Combine server posts + any unsaved local posts (deduped) and rank
   const rankedFeedPosts = useMemo(() => {
-    const combined = [...localPosts, ...(serverPosts ?? [])];
-    return rankPosts(combined);
-  }, [localPosts, serverPosts]);
+    // Only include local posts that haven't been synced to server yet (still have 'local-' prefix)
+    const serverIds = new Set((serverPosts ?? []).map((p) => p.id));
+    const unsynced = localPosts.filter((p) => p.id.startsWith('local-') && !serverIds.has(p.id));
+    const combined = [...unsynced, ...(serverPosts ?? [])];
+    return rankPosts(combined, { followedUsernames: followingUsernames });
+  }, [localPosts, serverPosts, followingUsernames]);
 
   const handleEndReached = useCallback(() => {
     if (hasNextPage && !isFetchingNextPage) fetchNextPage();
@@ -294,7 +302,7 @@ export default function HomeScreen() {
         data={rankedFeedPosts}
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
-        ListHeaderComponent={HomeHeader}
+        ListHeaderComponent={() => <HomeHeader onStoryPress={(user) => setSelectedStoryUser(user)} />}
         onEndReached={handleEndReached}
         onEndReachedThreshold={0.5}
         onRefresh={refetch}
@@ -311,6 +319,13 @@ export default function HomeScreen() {
             />
           </View>
         }
+      />
+
+      {/* Full Screen Instagram-style Story Viewer */}
+      <StoryViewerModal
+        user={selectedStoryUser}
+        visible={!!selectedStoryUser}
+        onDismiss={() => setSelectedStoryUser(null)}
       />
     </View>
   );

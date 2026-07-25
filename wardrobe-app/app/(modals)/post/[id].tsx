@@ -50,13 +50,10 @@ export default function PostDetailScreen() {
   const [showPostAction, setShowPostAction] = useState(false);
 
   const [commentText, setCommentText] = useState('');
-  const [comments, setComments] = useState<Comment[]>([
-    { id: 'c1', username: 'chloe_styles', avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?q=80&w=600', text: 'Love this outfit pairing! 😍 The bomber jacket fit is elite.', createdAt: '2h ago' },
-    { id: 'c2', username: 'nova_fits', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600', text: 'Where did you get the cargo pants from?? Dope style 🔥', createdAt: '1h ago' },
-  ]);
+  const [comments, setComments] = useState<Comment[]>([]);
 
   const [isLiked, setIsLiked] = useState(false);
-  const [likeCount, setLikeCount] = useState(1842);
+  const [likeCount, setLikeCount] = useState(0);
   const [isSaved, setIsSaved] = useState(false);
 
   // Find local post if available
@@ -119,7 +116,8 @@ export default function PostDetailScreen() {
     if (!commentText.trim()) return;
     const newComment: Comment = {
       id: 'c_' + Date.now(),
-      username: 'you',
+      username: me?.username ?? 'you',
+      avatar: me?.avatar,
       text: commentText.trim(),
       createdAt: 'Just now',
     };
@@ -128,11 +126,9 @@ export default function PostDetailScreen() {
     showToast('Comment posted!', 'success');
   }
 
-  const sampleTags = [
-    { id: 't1', name: 'Oversized Vintage Leather Bomber', price: 8500, brand: 'Oak & Fort', image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?q=80&w=600' },
-    { id: 't2', name: 'Cargo Parachute Pants', price: 4200, brand: 'Fear of God', image: 'https://images.unsplash.com/photo-1517445312882-bc9910d016b7?q=80&w=600' },
-    { id: 't3', name: 'Retro High-Top Sneakers', price: 6800, brand: 'Jordan 1', image: 'https://images.unsplash.com/photo-1552346154-21d32810aba3?q=80&w=600' },
-  ];
+  const taggedItems: WardrobeItem[] = (activePost?.tags || [])
+    .map((t) => t.item)
+    .filter((item): item is WardrobeItem => Boolean(item));
 
   return (
     <KeyboardAvoidingView
@@ -312,65 +308,67 @@ export default function PostDetailScreen() {
           </View>
 
           {/* Caption */}
-          <View style={{ paddingHorizontal: 16, paddingTop: 14 }}>
-            <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 14, color: colors.black, lineHeight: 20 }}>
-              <Text style={{ fontFamily: 'SpaceGrotesk-Bold' }}>@{activePost?.author?.username ?? 'drip_user'} </Text>
-              {activePost?.caption ?? 'Oversized Vintage Bomber & Cargo Parachute Fit 🖤 #streetwear #OOTD'}
-            </Text>
-          </View>
+          {activePost?.caption ? (
+            <View style={{ paddingHorizontal: 16, paddingTop: 14 }}>
+              <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 14, color: colors.black, lineHeight: 20 }}>
+                <Text style={{ fontFamily: 'SpaceGrotesk-Bold' }}>@{activePost?.author?.username ?? 'user'} </Text>
+                {activePost.caption}
+              </Text>
+            </View>
+          ) : null}
         </View>
 
         {/* Shoppable Tagged Items Row */}
-        <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
-          <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 16, color: colors.black, marginBottom: 10 }}>
-            Tagged Closet Items ({sampleTags.length})
-          </Text>
+        {taggedItems.length > 0 && (
+          <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
+            <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 16, color: colors.black, marginBottom: 10 }}>
+              Tagged Closet Items ({taggedItems.length})
+            </Text>
 
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, flexDirection: 'row' }}>
-            {sampleTags.map((tag) => (
-              <View
-                key={tag.id}
-                style={{
-                  width: 200,
-                  backgroundColor: colors.white,
-                  borderRadius: radii.bento,
-                  padding: 12,
-                  borderWidth: 1,
-                  borderColor: colors.bentoBorder,
-                  gap: 8,
-                }}
-              >
-                <Image source={{ uri: tag.image }} style={{ width: '100%', height: 110, borderRadius: 12 }} contentFit="cover" />
-                <Text numberOfLines={1} style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 13, color: colors.black }}>{tag.name}</Text>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 11, color: '#6B7280' }}>{tag.brand}</Text>
-                  <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 12, color: colors.bentoPurple }}>₹{tag.price}</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, flexDirection: 'row' }}>
+              {taggedItems.map((item) => (
+                <View
+                  key={item.id}
+                  style={{
+                    width: 200,
+                    backgroundColor: colors.white,
+                    borderRadius: radii.bento,
+                    padding: 12,
+                    borderWidth: 1,
+                    borderColor: colors.bentoBorder,
+                    gap: 8,
+                  }}
+                >
+                  <Image source={{ uri: item.imageUrl }} style={{ width: '100%', height: 110, borderRadius: 12 }} contentFit="cover" />
+                  <Text numberOfLines={1} style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 13, color: colors.black }}>{item.name}</Text>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 11, color: '#6B7280' }}>{item.brand || item.category}</Text>
+                    {item.purchasePrice ? (
+                      <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 12, color: colors.bentoPurple }}>₹{item.purchasePrice}</Text>
+                    ) : null}
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 6, marginTop: 4 }}>
+                    <NBButton
+                      label="Save to My Closet"
+                      variant="primary"
+                      style={{ flex: 1, paddingVertical: 6 }}
+                      onPress={() => {
+                        addItem({
+                          ...item,
+                          id: 'item_' + item.id + '_' + Date.now(),
+                          createdAt: new Date().toISOString(),
+                          updatedAt: new Date().toISOString(),
+                          wearCount: 0,
+                        });
+                        showToast(`Saved ${item.name} to My Closet! 👕`, 'success');
+                      }}
+                    />
+                  </View>
                 </View>
-                <View style={{ flexDirection: 'row', gap: 6, marginTop: 4 }}>
-                  <NBButton
-                    label="Move to Closet"
-                    variant="primary"
-                    style={{ flex: 1, paddingVertical: 6 }}
-                    onPress={() => {
-                      addItem({
-                        id: 'item_' + tag.id + '_' + Date.now(),
-                        name: tag.name,
-                        category: 'tops',
-                        imageUrl: tag.image,
-                        purchasePrice: tag.price,
-                        brand: tag.brand,
-                        createdAt: new Date().toISOString(),
-                        updatedAt: new Date().toISOString(),
-                        wearCount: 0,
-                      });
-                      showToast(`Added ${tag.name} to My Closet! 👕`, 'success');
-                    }}
-                  />
-                </View>
-              </View>
-            ))}
-          </ScrollView>
-        </View>
+              ))}
+            </ScrollView>
+          </View>
+        )}
 
         {/* Comments Section */}
         <View style={{ paddingHorizontal: 16, paddingTop: 20 }}>

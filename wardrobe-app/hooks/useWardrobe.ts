@@ -1,57 +1,68 @@
-import { useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/axios';
-import { WardrobeItem } from '../types/item';
 import { useWardrobeStore } from '../store/wardrobeStore';
 import { useAuthStore } from '../store/authStore';
+import { WardrobeItem } from '../types/item';
+import { useEffect } from 'react';
 
 export function useWardrobe() {
-  const setItems = useWardrobeStore((s) => s.setItems);
   const user = useAuthStore((s) => s.user);
+  const setItems = useWardrobeStore((s) => s.setItems);
 
   const query = useQuery({
-    queryKey: ['wardrobe', user?.username],
+    queryKey: ['wardrobe', user?.id],
+    enabled: !!user,
     queryFn: async () => {
-      // Only fetch mock wardrobe for default demo user drip_user
-      if (user && user.username !== 'drip_user') {
-        return [];
-      }
       const { data } = await api.get<WardrobeItem[]>('/api/wardrobe');
       return data;
     },
+    staleTime: 0,
   });
 
+  // Sync server data into Zustand store whenever it changes
   useEffect(() => {
-    if (query.data && user?.username === 'drip_user') {
+    if (query.data) {
       setItems(query.data);
+    } else if (!user) {
+      setItems([]);
     }
-  }, [query.data, user?.username]);
+  }, [query.data, setItems, user]);
 
-  return query;
+  return {
+    data: query.data ?? [],
+    isLoading: query.isLoading,
+    refetch: query.refetch,
+  };
 }
 
 export function useWishlist() {
-  const setWishlist = useWardrobeStore((s) => s.setWishlist);
   const user = useAuthStore((s) => s.user);
+  const setWishlist = useWardrobeStore((s) => s.setWishlist);
 
   const query = useQuery({
-    queryKey: ['wishlist', user?.username],
+    queryKey: ['wishlist', user?.id],
+    enabled: !!user,
     queryFn: async () => {
-      if (user && user.username !== 'drip_user') {
-        return [];
-      }
       const { data } = await api.get<WardrobeItem[]>('/api/wishlist');
       return data;
     },
+    staleTime: 0,
   });
 
+  // Sync server data into Zustand store whenever it changes
   useEffect(() => {
-    if (query.data && user?.username === 'drip_user') {
+    if (query.data) {
       setWishlist(query.data);
+    } else if (!user) {
+      setWishlist([]);
     }
-  }, [query.data, user?.username]);
+  }, [query.data, setWishlist, user]);
 
-  return query;
+  return {
+    data: query.data ?? [],
+    isLoading: query.isLoading,
+    refetch: query.refetch,
+  };
 }
 
 export function useDeleteItem() {

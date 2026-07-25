@@ -30,8 +30,11 @@ export default function ProfileScreen() {
 
   const user = me ? { ...me, wardrobeCount: wardrobeItems.length } : null;
 
+  // Filter local posts created by the currently logged-in user
+  const userLocalPosts = localPosts.filter((p) => p.user.username === username);
+
   // Map local FeedPosts to OutfitPost shape required by ProfilePostGrid
-  const mappedLocalPosts: OutfitPost[] = localPosts.map((p) => ({
+  const mappedLocalPosts: OutfitPost[] = userLocalPosts.map((p) => ({
     id: p.id,
     author: user ?? {
       id: 'me',
@@ -55,7 +58,10 @@ export default function ProfileScreen() {
     createdAt: p.createdAt,
   }));
 
-  const combinedPosts: OutfitPost[] = [...mappedLocalPosts, ...(serverPosts ?? [])];
+  // Deduplicate: only show unsaved local posts not yet in server
+  const serverPostIds = new Set((serverPosts ?? []).map((p) => p.id));
+  const unsyncedLocalPosts = mappedLocalPosts.filter((p) => p.id.startsWith('local-') && !serverPostIds.has(p.id));
+  const combinedPosts: OutfitPost[] = [...unsyncedLocalPosts, ...(serverPosts ?? [])];
   const savedPosts = combinedPosts.filter((p) => p.isSaved);
 
   if (!user) {

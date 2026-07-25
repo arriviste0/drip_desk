@@ -15,6 +15,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 import { makeRedirectUri } from 'expo-auth-session';
+import Constants from 'expo-constants';
 import { Eye, EyeSlash, WarningCircle, CheckCircle, Sparkle } from 'phosphor-react-native';
 import { useAuthStore } from '../../store/authStore';
 import { colors, radii } from '../../lib/theme';
@@ -59,16 +60,18 @@ export function SingleAuthScreen({ initialMode = 'signin' }: { initialMode?: Aut
     setPasswordError('');
   }
 
-  const fallbackClientId = GOOGLE_WEB_CLIENT_ID || 'demo_google_client_id';
+  const isExpoGo = Constants.appOwnership === 'expo' || Constants.executionEnvironment === 'storeClient';
 
   const [request, googleResponse, promptGoogleAsync] = Google.useAuthRequest({
-    clientId: fallbackClientId,
-    webClientId: GOOGLE_WEB_CLIENT_ID || fallbackClientId,
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || fallbackClientId,
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || fallbackClientId,
-    redirectUri: makeRedirectUri({
-      native: 'https://auth.expo.io/@pranshu_ptl/wardrobe-app',
-    }),
+    clientId: isExpoGo ? process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID : undefined,
+    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+    redirectUri: isExpoGo
+      ? makeRedirectUri({
+          native: 'https://auth.expo.io/@pranshu_ptl/wardrobe-app',
+        })
+      : undefined,
   });
 
   useEffect(() => {

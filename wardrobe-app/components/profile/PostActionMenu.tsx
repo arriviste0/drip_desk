@@ -6,6 +6,8 @@ import { NBButton, useToast } from '../ui';
 import { usePostStore } from '../../store/postStore';
 import { OutfitPost } from '../../types/post';
 
+import { useAuthStore } from '../../store/authStore';
+
 interface PostActionMenuProps {
   post: OutfitPost | null;
   visible: boolean;
@@ -16,6 +18,9 @@ export function PostActionMenu({ post, visible, onDismiss }: PostActionMenuProps
   const showToast = useToast();
   const editPost = usePostStore((s) => s.editPost);
   const deletePost = usePostStore((s) => s.deletePost);
+  const me = useAuthStore((s) => s.user);
+
+  const isMyPost = Boolean(me && post && post.author?.username === me.username);
 
   const [isEditing, setIsEditing] = useState(false);
   const [newCaption, setNewCaption] = useState('');
@@ -113,32 +118,34 @@ export function PostActionMenu({ post, visible, onDismiss }: PostActionMenuProps
             </View>
           ) : (
             <View style={{ gap: 8 }}>
-              {/* Edit Option */}
-              <Pressable
-                onPress={() => setIsEditing(true)}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 12,
-                  backgroundColor: colors.paper,
-                  padding: 14,
-                  borderRadius: 16,
-                  borderWidth: 1,
-                  borderColor: colors.bentoBorder,
-                }}
-              >
-                <View style={{ backgroundColor: colors.bentoLavender, padding: 8, borderRadius: 9999 }}>
-                  <PencilSimple color={colors.bentoPurple} size={18} weight="bold" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 14, color: colors.black }}>
-                    Edit Post Caption
-                  </Text>
-                  <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 11, color: '#6B7280' }}>
-                    Update the caption and hashtags for this outfit
-                  </Text>
-                </View>
-              </Pressable>
+              {/* Edit Option (Owner only) */}
+              {isMyPost && (
+                <Pressable
+                  onPress={() => setIsEditing(true)}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 12,
+                    backgroundColor: colors.paper,
+                    padding: 14,
+                    borderRadius: 16,
+                    borderWidth: 1,
+                    borderColor: colors.bentoBorder,
+                  }}
+                >
+                  <View style={{ backgroundColor: colors.bentoLavender, padding: 8, borderRadius: 9999 }}>
+                    <PencilSimple color={colors.bentoPurple} size={18} weight="bold" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 14, color: colors.black }}>
+                      Edit Post Caption
+                    </Text>
+                    <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 11, color: '#6B7280' }}>
+                      Update the caption and hashtags for this outfit
+                    </Text>
+                  </View>
+                </Pressable>
+              )}
 
               {/* Share Option */}
               <Pressable
@@ -167,32 +174,34 @@ export function PostActionMenu({ post, visible, onDismiss }: PostActionMenuProps
                 </View>
               </Pressable>
 
-              {/* Delete Option */}
-              <Pressable
-                onPress={handleDelete}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 12,
-                  backgroundColor: colors.bentoRoseSoft,
-                  padding: 14,
-                  borderRadius: 16,
-                  borderWidth: 1,
-                  borderColor: '#FECDD3',
-                }}
-              >
-                <View style={{ backgroundColor: '#FFE4E6', padding: 8, borderRadius: 9999 }}>
-                  <Trash color="#E11D48" size={18} weight="bold" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 14, color: '#E11D48' }}>
-                    Delete Post
-                  </Text>
-                  <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 11, color: '#BE185D' }}>
-                    Permanently remove this outfit post from feed
-                  </Text>
-                </View>
-              </Pressable>
+              {/* Delete Option (Owner only) */}
+              {isMyPost && (
+                <Pressable
+                  onPress={handleDelete}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 12,
+                    backgroundColor: colors.bentoRoseSoft,
+                    padding: 14,
+                    borderRadius: 16,
+                    borderWidth: 1,
+                    borderColor: '#FECDD3',
+                  }}
+                >
+                  <View style={{ backgroundColor: '#FFE4E6', padding: 8, borderRadius: 9999 }}>
+                    <Trash color="#E11D48" size={18} weight="bold" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 14, color: '#E11D48' }}>
+                      Delete Post
+                    </Text>
+                    <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 11, color: '#BE185D' }}>
+                      Permanently remove this outfit post from feed
+                    </Text>
+                  </View>
+                </Pressable>
+              )}
             </View>
           )}
         </Pressable>

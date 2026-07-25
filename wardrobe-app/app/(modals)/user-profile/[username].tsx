@@ -2,13 +2,15 @@ import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
-import { ChatCircleDots } from 'phosphor-react-native';
+import { ChatCircleDots, Lock } from 'phosphor-react-native';
 import { ProfileHeader } from '../../../components/profile/ProfileHeader';
 import { ProfilePostGrid } from '../../../components/profile/ProfilePostGrid';
 import { UserListModal } from '../../../components/profile/UserListModal';
 import { NBButton } from '../../../components/ui';
 import { useUserProfile, useFollowMutation, useUserPosts, FollowListType } from '../../../hooks/useProfile';
 import { useCurrentUser } from '../../../hooks/useAuth';
+import { usePostStore } from '../../../store/postStore';
+import { OutfitPost } from '../../../types/post';
 import { colors, radii } from '../../../lib/theme';
 import { User } from '../../../types/user';
 import { WardrobeItem } from '../../../types/item';
@@ -85,6 +87,34 @@ export default function UserProfileModal() {
   const user = creator?.user || serverUser;
   const isOwnProfile = me?.username === username;
 
+  const localPosts = usePostStore((s) => s.localPosts);
+  const userLocalPosts = localPosts.filter((p) => p.user.username === username);
+  const mappedLocalPosts: OutfitPost[] = userLocalPosts.map((p) => ({
+    id: p.id,
+    author: user ?? {
+      id: 'user',
+      username: p.user.username,
+      email: '',
+      displayName: p.user.username,
+      avatar: p.user.avatarUrl,
+      followersCount: 0,
+      followingCount: 0,
+      wardrobeCount: 0,
+      createdAt: p.createdAt,
+    },
+    imageUrl: p.images[0] ?? '',
+    caption: p.caption,
+    tags: p.tags,
+    hashtags: [],
+    likesCount: p.likeCount,
+    commentsCount: p.commentCount,
+    isLiked: p.isLiked,
+    isSaved: p.isSaved,
+    createdAt: p.createdAt,
+  }));
+
+  const allUserPosts: OutfitPost[] = [...mappedLocalPosts, ...(serverPosts ?? [])];
+
   if (isLoading && !user) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.paper, alignItems: 'center', justifyContent: 'center' }}>
@@ -131,6 +161,9 @@ export default function UserProfileModal() {
     </View>
   ) : null;
 
+  const isPrivateAccountLocked = !isOwnProfile && user.visibility === 'private' && !user.isFollowing;
+  const visibleClosetItems = (creator?.items ?? []).filter((item) => isOwnProfile || !item.isPrivate);
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.paper }}>
       <ProfileHeader
@@ -141,65 +174,80 @@ export default function UserProfileModal() {
         actionSlot={followButton}
       />
 
-      {/* Profile Sub-Tabs Navigation Bar */}
-      <View style={{ paddingHorizontal: 14, marginBottom: 12 }}>
-        <View style={{ flexDirection: 'row', backgroundColor: colors.white, borderRadius: 9999, padding: 4, borderWidth: 1, borderColor: colors.bentoBorder }}>
-          {[
-            { id: 'posts' as ProfileTab, label: 'Posts' },
-            { id: 'looks' as ProfileTab, label: 'Looks' },
-            { id: 'closet' as ProfileTab, label: 'Closet Items' },
-          ].map((tab) => {
-            const isActive = activeTab === tab.id;
-            return (
-              <Pressable
-                key={tab.id}
-                onPress={() => setActiveTab(tab.id)}
-                style={{
-                  flex: 1,
-                  paddingVertical: 8,
-                  alignItems: 'center',
-                  borderRadius: 9999,
-                  backgroundColor: isActive ? colors.black : 'transparent',
-                }}
-              >
-                <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 12, color: isActive ? colors.white : '#6B7280' }}>
-                  {tab.label}
-                </Text>
-              </Pressable>
-            );
-          })}
+      {isPrivateAccountLocked ? (
+        <View style={{ padding: 40, alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 40 }}>
+          <View style={{ width: 68, height: 68, borderRadius: 34, backgroundColor: colors.bentoLavender, alignItems: 'center', justifyContent: 'center' }}>
+            <Lock color={colors.bentoPurple} size={32} weight="bold" />
+          </View>
+          <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 18, color: colors.black }}>
+            This Account is Private
+          </Text>
+          <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 13, color: '#6B7280', textAlign: 'center', lineHeight: 20 }}>
+            Follow @{user.username} to see their outfit posts, looks, and closet items.
+          </Text>
         </View>
-      </View>
-
-      {activeTab === 'posts' && (
-        <ProfilePostGrid posts={serverPosts && serverPosts.length ? serverPosts : []} loading={false} />
-      )}
-
-      {activeTab === 'looks' && (
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 14, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
-          {creator?.looks.map((look, i) => (
-            <View key={i} style={{ backgroundColor: colors.white, borderRadius: radii.bento, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: colors.bentoBorder }}>
-              <Image source={{ uri: look.image }} style={{ width: '100%', height: 180, borderRadius: 16, marginBottom: 10 }} contentFit="cover" />
-              <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 16, color: colors.black }}>{look.title}</Text>
-              <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 12, color: '#6B7280', marginTop: 2 }}>{look.itemsCount} Tagged Closet Items</Text>
+      ) : (
+        <View style={{ flex: 1 }}>
+          {/* Profile Sub-Tabs Navigation Bar */}
+          <View style={{ paddingHorizontal: 14, marginBottom: 12 }}>
+            <View style={{ flexDirection: 'row', backgroundColor: colors.white, borderRadius: 9999, padding: 4, borderWidth: 1, borderColor: colors.bentoBorder }}>
+              {[
+                { id: 'posts' as ProfileTab, label: 'Posts' },
+                { id: 'looks' as ProfileTab, label: 'Looks' },
+                { id: 'closet' as ProfileTab, label: 'Closet Items' },
+              ].map((tab) => {
+                const isActive = activeTab === tab.id;
+                return (
+                  <Pressable
+                    key={tab.id}
+                    onPress={() => setActiveTab(tab.id)}
+                    style={{
+                      flex: 1,
+                      paddingVertical: 8,
+                      alignItems: 'center',
+                      borderRadius: 9999,
+                      backgroundColor: isActive ? colors.black : 'transparent',
+                    }}
+                  >
+                    <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 12, color: isActive ? colors.white : '#6B7280' }}>
+                      {tab.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
-          ))}
-        </ScrollView>
-      )}
+          </View>
 
-      {activeTab === 'closet' && (
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 14, paddingBottom: 40, flexDirection: 'row', flexWrap: 'wrap', gap: 10 }} showsVerticalScrollIndicator={false}>
-          {creator?.items.map((item) => (
-            <View key={item.id} style={{ width: '48%', backgroundColor: colors.white, borderRadius: radii.bento, overflow: 'hidden', borderWidth: 1, borderColor: colors.bentoBorder, padding: 10 }}>
-              <Image source={{ uri: item.imageUrl }} style={{ width: '100%', height: 130, borderRadius: 12, marginBottom: 8 }} contentFit="cover" />
-              <Text numberOfLines={1} style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 13, color: colors.black }}>{item.name}</Text>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
-                <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 11, color: '#6B7280' }}>{item.brand}</Text>
-                <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 12, color: colors.bentoPurple }}>₹{item.purchasePrice}</Text>
+          {activeTab === 'posts' && (
+            <ProfilePostGrid posts={allUserPosts} loading={false} />
+          )}
+
+          {activeTab === 'looks' && (
+            <ScrollView contentContainerStyle={{ paddingHorizontal: 14, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+              {creator?.looks.map((look, i) => (
+                <View key={i} style={{ backgroundColor: colors.white, borderRadius: radii.bento, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: colors.bentoBorder }}>
+                  <Image source={{ uri: look.image }} style={{ width: '100%', height: 180, borderRadius: 16, marginBottom: 10 }} contentFit="cover" />
+                  <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 15, color: colors.black }}>{look.title}</Text>
+                  <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 12, color: '#6B7280', marginTop: 2 }}>{look.itemsCount} items tagged</Text>
+                </View>
+              ))}
+            </ScrollView>
+          )}
+
+          {activeTab === 'closet' && (
+            <ScrollView contentContainerStyle={{ paddingHorizontal: 14, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+                {visibleClosetItems.map((item) => (
+                  <View key={item.id} style={{ width: '48%', backgroundColor: colors.white, borderRadius: radii.bento, padding: 10, borderWidth: 1, borderColor: colors.bentoBorder }}>
+                    <Image source={{ uri: item.imageUrl }} style={{ width: '100%', height: 120, borderRadius: 12 }} contentFit="cover" />
+                    <Text numberOfLines={1} style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 13, color: colors.black, marginTop: 6 }}>{item.name}</Text>
+                    <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 11, color: '#6B7280' }}>{item.brand || item.category}</Text>
+                  </View>
+                ))}
               </View>
-            </View>
-          ))}
-        </ScrollView>
+            </ScrollView>
+          )}
+        </View>
       )}
 
       <UserListModal

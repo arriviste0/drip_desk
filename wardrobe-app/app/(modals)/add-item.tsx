@@ -40,6 +40,7 @@ interface ItemForm {
   brand: string;
   notes: string;
   productUrl: string;
+  isPrivate: boolean;
 }
 
 const DEFAULT_FORM: ItemForm = {
@@ -58,6 +59,7 @@ const DEFAULT_FORM: ItemForm = {
   brand: '',
   notes: '',
   productUrl: '',
+  isPrivate: false,
 };
 
 const CATEGORIES: Array<{ label: string; value: ClothingCategory }> = [
@@ -165,6 +167,8 @@ export default function AddItemModal() {
   const { isWishlist, id } = useLocalSearchParams();
   const items = useWardrobeStore((s) => s.items);
   const wishlist = useWardrobeStore((s) => s.wishlist);
+  const addItem = useWardrobeStore((s) => s.addItem);
+  const addToWishlist = useWardrobeStore((s) => s.addToWishlist);
   const allItems = [...items, ...wishlist];
   const { top } = useSafeAreaInsets();
 
@@ -188,6 +192,7 @@ export default function AddItemModal() {
           brand: item.brand || '',
           notes: item.notes || '',
           productUrl: item.productUrl || '',
+          isPrivate: item.isPrivate || false,
         });
         setImageUri(item.imageUrl || null);
         setProcessedUri(item.imageUrl || null);
@@ -395,15 +400,39 @@ export default function AddItemModal() {
         sourceMethod: method,
         imageUrl: processedUri,
         isWishlist: isWishlist === 'true' || undefined,
+        isPrivate: form.isPrivate,
       };
 
-      if (id) {
-        await api.put(`/api/items/${id}`, payload);
-        showToast('Item updated!', 'success');
-      } else {
-        await api.post('/api/items', payload);
-        showToast(isWishlist === 'true' ? 'Added to wishlist!' : 'Added to wardrobe!', 'success');
+      let savedItem: any;
+      try {
+        const { data } = id
+          ? await api.put(`/api/items/${id}`, payload)
+          : await api.post('/api/items', payload);
+        savedItem = data?.id ? data : {
+          id: 'item_' + Date.now(),
+          ...payload,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          wearCount: 0,
+        };
+      } catch {
+        savedItem = {
+          id: 'item_' + Date.now(),
+          ...payload,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          wearCount: 0,
+        };
       }
+
+      if (isWishlist === 'true' || payload.isWishlist) {
+        addToWishlist(savedItem);
+        showToast(id ? 'Wishlist item updated!' : 'Added to wishlist! 💖', 'success');
+      } else {
+        addItem(savedItem);
+        showToast(id ? 'Item updated!' : 'Added to wardrobe! 👕', 'success');
+      }
+
       queryClient.invalidateQueries({ queryKey: ['wardrobe'] });
       queryClient.invalidateQueries({ queryKey: ['wishlist'] });
       router.back();
@@ -631,6 +660,47 @@ export default function AddItemModal() {
           </NBCard>
 
           <NBInput label="Item name *" placeholder="e.g. White Oxford Shirt" value={form.name} onChangeText={(v) => setForm((p) => ({ ...p, name: v }))} error={errors.name} />
+
+          {/* Privacy Selector */}
+          <View style={{ gap: 8 }}>
+            <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 13, color: colors.black }}>
+              Item Privacy
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <Pressable
+                onPress={() => setForm((p) => ({ ...p, isPrivate: false }))}
+                style={{
+                  flex: 1,
+                  paddingVertical: 10,
+                  borderRadius: 14,
+                  alignItems: 'center',
+                  backgroundColor: !form.isPrivate ? colors.black : colors.paper,
+                  borderWidth: 1,
+                  borderColor: colors.bentoBorder,
+                }}
+              >
+                <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 12, color: !form.isPrivate ? colors.white : colors.black }}>
+                  🌐 Public
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setForm((p) => ({ ...p, isPrivate: true }))}
+                style={{
+                  flex: 1,
+                  paddingVertical: 10,
+                  borderRadius: 14,
+                  alignItems: 'center',
+                  backgroundColor: form.isPrivate ? colors.bentoPurple : colors.paper,
+                  borderWidth: 1,
+                  borderColor: colors.bentoBorder,
+                }}
+              >
+                <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 12, color: form.isPrivate ? colors.white : colors.black }}>
+                  🔒 Private (Only Me)
+                </Text>
+              </Pressable>
+            </View>
+          </View>
 
           <View>
             <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 13, color: colors.black, marginBottom: 8 }}>

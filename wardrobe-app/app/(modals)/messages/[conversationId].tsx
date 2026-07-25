@@ -28,11 +28,7 @@ export default function ConversationScreen() {
   const showToast = useToast();
 
   const [messageText, setMessageText] = useState('');
-  const [messages, setMessages] = useState<MessageItem[]>([
-    { id: 'm1', sender: 'them', text: `Hey! Love your outfit posts on Drip Deck 🔥`, time: '10:14 AM' },
-    { id: 'm2', sender: 'me', text: `Thanks! Appreciate it! Where did you get that leather jacket from?`, time: '10:16 AM' },
-    { id: 'm3', sender: 'them', text: `It's vintage Oak & Fort! Tagged it in my latest look 🧥`, time: '10:18 AM' },
-  ]);
+  const [messages, setMessages] = useState<MessageItem[]>([]);
 
   function handleSendMessage() {
     if (!messageText.trim()) return;

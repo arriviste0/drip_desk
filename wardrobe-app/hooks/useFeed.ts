@@ -1,7 +1,6 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import api from '../lib/axios';
 import { FeedPost } from '../types/post';
-import { usePostStore } from '../store/postStore';
 
 interface FeedPage {
   posts: FeedPost[];
@@ -9,8 +8,6 @@ interface FeedPage {
 }
 
 export function useFeed() {
-  const localPosts = usePostStore((s) => s.localPosts);
-
   const query = useInfiniteQuery({
     queryKey: ['feed'],
     queryFn: async ({ pageParam }: { pageParam: string | undefined }) => {
@@ -22,9 +19,7 @@ export function useFeed() {
     initialPageParam: undefined as string | undefined,
   });
 
-  const serverPosts = query.data?.pages.flatMap((p) => p.posts) ?? [];
-  // Prepend locally created posts so they appear at the top immediately
-  const posts = [...localPosts, ...serverPosts];
+  const posts = query.data?.pages.flatMap((p) => p.posts) ?? [];
 
   return { ...query, posts };
 }

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { View, Text, ScrollView, Pressable, Modal } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Image } from 'expo-image';
-import { CoatHanger, PencilSimple, Trash } from 'phosphor-react-native';
+import { CoatHanger, Lock, PencilSimple, Trash } from 'phosphor-react-native';
 import { useWardrobeStore } from '../../../store/wardrobeStore';
 import { useDeleteItem } from '../../../hooks/useWardrobe';
 import { NBBadge, NBButton, useToast } from '../../../components/ui';
@@ -96,13 +96,23 @@ export default function ItemDetail() {
                 {item.name}
               </Text>
             </View>
-            {isWishlistItem && (
-              <View style={{ backgroundColor: colors.bentoRoseSoft, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 9999 }}>
-                <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 11, color: '#EC4899' }}>
-                  WISHLIST
-                </Text>
-              </View>
-            )}
+            <View style={{ flexDirection: 'row', gap: 6 }}>
+              {item.isPrivate && (
+                <View style={{ backgroundColor: colors.bentoLavender, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 9999, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Lock color={colors.bentoPurple} size={12} weight="bold" />
+                  <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 11, color: colors.bentoPurple }}>
+                    PRIVATE
+                  </Text>
+                </View>
+              )}
+              {isWishlistItem && (
+                <View style={{ backgroundColor: colors.bentoRoseSoft, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 9999 }}>
+                  <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 11, color: '#EC4899' }}>
+                    WISHLIST
+                  </Text>
+                </View>
+              )}
+            </View>
           </View>
 
           {/* Move to Closet Action Banner */}

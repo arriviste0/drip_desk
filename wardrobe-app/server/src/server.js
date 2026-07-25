@@ -701,7 +701,7 @@ const server = http.createServer(async (request, response) => {
       const userId = user ? user._id.toString() : null;
       const postCount = userId ? await db.collection('posts').countDocuments({ username: uname }) : 0;
       const items = userId ? await db.collection('items').find({ userId, isWishlist: { $ne: true } }).toArray() : [];
-      const wardrobeValue = items.reduce((sum, item) => sum + (item.purchasePrice || 0), 0);
+      const wardrobeValue = items.reduce((sum, item) => sum + (Number(item.purchasePrice) || 0), 0);
       return sendJson(response, 200, {
         posts: postCount,
         outfits: 0,

@@ -64,7 +64,7 @@ function SubTabsHeader({
         }}
       >
         {[
-          { id: 'closet' as SubTab, label: `Closet (${itemCount})` },
+          { id: 'closet' as SubTab, label: `My Closet (${itemCount})` },
           { id: 'outfits' as SubTab, label: `Looks (${outfitCount})` },
           { id: 'wishlist' as SubTab, label: `Wishlist (${wishlistCount})` },
         ].map((tab) => {

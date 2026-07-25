@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
@@ -13,7 +13,7 @@ import {
 import { router, useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
 import { BookmarkSimple, Camera, ChartPie, ChatCircle, CoatHanger, Cube, DotsThreeVertical, Export, Heart, PaperPlaneRight, Sparkle } from 'phosphor-react-native';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { NBAvatar, NBBadge, NBButton, NBTag, useToast } from '../../../components/ui';
 import { ScreenHeader } from '../../../components/profile/ScreenHeader';
 import { UserListModal } from '../../../components/profile/UserListModal';
@@ -117,18 +117,39 @@ export default function PostDetailScreen() {
       }
     : serverPost ?? null;
 
+  const queryClient = useQueryClient();
+  const toggleLikeStore = usePostStore((s) => s.toggleLike);
+  const toggleSaveStore = usePostStore((s) => s.toggleSave);
+
+  useEffect(() => {
+    if (activePost) {
+      setIsLiked(Boolean(activePost.isLiked));
+      setLikeCount(activePost.likesCount ?? (activePost as any).likeCount ?? 0);
+      setIsSaved(Boolean(activePost.isSaved));
+    }
+  }, [activePost?.id, activePost?.isLiked, activePost?.likesCount, (activePost as any)?.likeCount, activePost?.isSaved]);
+
   function handleToggleLike() {
-    setIsLiked((prev) => {
-      const next = !prev;
-      setLikeCount((c) => c + (next ? 1 : -1));
-      return next;
-    });
-    showToast(isLiked ? 'Unliked post' : 'Liked post! ❤️', 'success');
+    if (!id) return;
+    const next = !isLiked;
+    setIsLiked(next);
+    setLikeCount((c) => Math.max(0, c + (next ? 1 : -1)));
+    toggleLikeStore(id);
+    api.post(`/api/posts/${id}/like`).catch(() => {});
+    queryClient.invalidateQueries({ queryKey: ['feed'] });
+    queryClient.invalidateQueries({ queryKey: ['post', id] });
+    showToast(next ? 'Liked post! ❤️' : 'Unliked post', 'success');
   }
 
   function handleToggleSave() {
-    setIsSaved((prev) => !prev);
-    showToast(isSaved ? 'Removed from saved' : 'Saved post to collection! 🔖', 'success');
+    if (!id) return;
+    const next = !isSaved;
+    setIsSaved(next);
+    toggleSaveStore(id);
+    api.post(`/api/posts/${id}/save`).catch(() => {});
+    queryClient.invalidateQueries({ queryKey: ['feed'] });
+    queryClient.invalidateQueries({ queryKey: ['post', id] });
+    showToast(next ? 'Saved post to collection! 🔖' : 'Removed from saved', 'success');
   }
 
   function handlePostComment() {

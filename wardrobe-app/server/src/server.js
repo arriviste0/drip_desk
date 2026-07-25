@@ -445,6 +445,43 @@ const server = http.createServer(async (request, response) => {
   const singlePostMatch = request.url.match(/^\/api\/posts\/([^/]+)$/);
   if (singlePostMatch) {
     const postId = singlePostMatch[1];
+    if (request.method === 'GET') {
+      try {
+        const authUser = await getAuthUser(request);
+        const db = await getDb();
+        const query = ObjectId.isValid(postId) ? { _id: new ObjectId(postId) } : { _id: postId };
+        const post = await db.collection('posts').findOne(query);
+        if (!post) return sendJson(response, 404, { message: 'Post not found' });
+        const uid = authUser ? authUser._id.toString() : '';
+        return sendJson(response, 200, {
+          id: post._id.toString(),
+          author: {
+            id: post.userId,
+            username: post.username,
+            displayName: post.userDisplayName || post.username,
+            email: '',
+            avatar: post.userAvatar || null,
+            followersCount: 0,
+            followingCount: 0,
+            wardrobeCount: 0,
+            isVerified: post.isVerified || false,
+            createdAt: post.createdAt,
+          },
+          imageUrl: (post.images || [])[0] || '',
+          caption: post.caption || '',
+          tags: post.tags || [],
+          hashtags: [],
+          likesCount: post.likeCount || 0,
+          commentsCount: post.commentCount || 0,
+          isLiked: (post.likedBy || []).includes(uid),
+          isSaved: (post.savedBy || []).includes(uid),
+          createdAt: post.createdAt,
+        });
+      } catch (error) {
+        console.error('[post-get-one]', error);
+        return sendJson(response, 500, { message: 'Could not fetch post' });
+      }
+    }
     if (request.method === 'DELETE') {
       try {
         const authUser = await getAuthUser(request);

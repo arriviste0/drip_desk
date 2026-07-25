@@ -38,10 +38,28 @@ interface Comment {
 
 type PostViewMode = 'photo' | '3d' | 'diagrams';
 
+function formatRelativeTime(dateString?: string): string {
+  if (!dateString) return 'Just now';
+  const now = new Date();
+  const date = new Date(dateString);
+  const diffMs = now.getTime() - date.getTime();
+  if (isNaN(diffMs) || diffMs < 0) return 'Just now';
+  const diffSec = Math.floor(diffMs / 1000);
+  if (diffSec < 60) return 'Just now';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHours = Math.floor(diffMin / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
 export default function PostDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const showToast = useToast();
   const addItem = useWardrobeStore((s) => s.addItem);
+  const wardrobeItems = useWardrobeStore((s) => s.items);
   const localPosts = usePostStore((s) => s.localPosts);
 
   const [viewMode, setViewMode] = useState<PostViewMode>('photo');
@@ -127,7 +145,7 @@ export default function PostDetailScreen() {
   }
 
   const taggedItems: WardrobeItem[] = (activePost?.tags || [])
-    .map((t) => t.item)
+    .map((t) => t.item || wardrobeItems.find((i) => i.id === t.itemId))
     .filter((item): item is WardrobeItem => Boolean(item));
 
   return (
@@ -168,7 +186,7 @@ export default function PostDetailScreen() {
                   {activePost?.author?.displayName ?? activePost?.author?.username ?? 'drip_user'}
                 </Text>
                 <Text style={{ fontFamily: 'SpaceGrotesk-Medium', fontSize: 11, color: '#9CA3AF' }}>
-                  Posted 2h ago
+                  Posted {formatRelativeTime(activePost?.createdAt)}
                 </Text>
               </View>
             </Pressable>

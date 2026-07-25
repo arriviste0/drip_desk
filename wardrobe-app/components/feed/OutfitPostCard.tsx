@@ -185,6 +185,10 @@ function OutfitPostCardInner({
     heartOpacity.value = withDelay(200, withTiming(0, { duration: 400 }));
   }, [heartScale, heartOpacity]);
 
+  const handleOpenPostDetail = useCallback(() => {
+    router.push({ pathname: '/(modals)/post/[id]', params: { id: post.id } });
+  }, [post.id]);
+
   const doubleTap = Gesture.Tap()
     .numberOfTaps(2)
     .onEnd(() => {
@@ -192,13 +196,22 @@ function OutfitPostCardInner({
       runOnJS(handleToggleLike)();
     });
 
+  const longPress = Gesture.LongPress()
+    .minDuration(200)
+    .onStart(() => {
+      runOnJS(setShowTags)(true);
+    })
+    .onEnd(() => {
+      runOnJS(setShowTags)(false);
+    });
+
   const singleTap = Gesture.Tap()
     .numberOfTaps(1)
     .onEnd(() => {
-      runOnJS(setShowTags)(!showTags);
+      runOnJS(handleOpenPostDetail)();
     });
 
-  const composed = Gesture.Exclusive(doubleTap, singleTap);
+  const composed = Gesture.Exclusive(doubleTap, longPress, singleTap);
 
   function handleLayout(e: LayoutChangeEvent) {
     setImageHeight(e.nativeEvent.layout.width * 1.15);
@@ -460,7 +473,7 @@ function OutfitPostCardInner({
         </Pressable>
 
         <Pressable
-          onPress={() => onComment(post.id)}
+          onPress={handleOpenPostDetail}
           style={{
             flexDirection: 'row',
             alignItems: 'center',
@@ -516,7 +529,8 @@ function OutfitPostCardInner({
 
       {/* Caption */}
       {post.caption ? (
-        <View
+        <Pressable
+          onPress={handleOpenPostDetail}
           style={{
             paddingHorizontal: 14,
             paddingBottom: 14,
@@ -526,7 +540,7 @@ function OutfitPostCardInner({
             <Text style={{ fontFamily: 'SpaceGrotesk-Bold' }}>{post.user.username} </Text>
             <Text style={{ color: '#4B5563' }}>{post.caption}</Text>
           </Text>
-        </View>
+        </Pressable>
       ) : null}
 
       {/* Edit / Delete Post Modal */}

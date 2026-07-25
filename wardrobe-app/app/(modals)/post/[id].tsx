@@ -14,7 +14,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
 import { BookmarkSimple, Camera, ChartPie, ChatCircle, CoatHanger, Cube, DotsThreeVertical, Export, Heart, PaperPlaneRight, Sparkle } from 'phosphor-react-native';
 import { useQuery } from '@tanstack/react-query';
-import { NBAvatar, NBBadge, NBButton, useToast } from '../../../components/ui';
+import { NBAvatar, NBBadge, NBButton, NBTag, useToast } from '../../../components/ui';
 import { ScreenHeader } from '../../../components/profile/ScreenHeader';
 import { UserListModal } from '../../../components/profile/UserListModal';
 import { PostActionMenu } from '../../../components/profile/PostActionMenu';
@@ -63,6 +63,7 @@ export default function PostDetailScreen() {
   const localPosts = usePostStore((s) => s.localPosts);
 
   const [viewMode, setViewMode] = useState<PostViewMode>('photo');
+  const [showTags, setShowTags] = useState(false);
   const [showUsersModal, setShowUsersModal] = useState(false);
   const [usersModalType, setUsersModalType] = useState<'followers' | 'following'>('followers');
   const [showPostAction, setShowPostAction] = useState(false);
@@ -205,12 +206,36 @@ export default function PostDetailScreen() {
             ) : viewMode === 'diagrams' ? (
               <OutfitFitDiagrams height={SCREEN_W * 1.1} width={SCREEN_W} />
             ) : (
-              <Image
-                source={{ uri: activePost?.imageUrl ?? 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=700' }}
+              <Pressable
+                onLongPress={() => setShowTags(true)}
+                onPressOut={() => setShowTags(false)}
+                delayLongPress={200}
                 style={{ width: '100%', height: '100%' }}
-                contentFit="cover"
-                transition={200}
-              />
+              >
+                <Image
+                  source={{ uri: activePost?.imageUrl ?? 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=700' }}
+                  style={{ width: '100%', height: '100%' }}
+                  contentFit="cover"
+                  transition={200}
+                />
+                {showTags &&
+                  (activePost?.tags || []).map((tag) => (
+                    <View
+                      key={tag.id}
+                      style={{
+                        position: 'absolute',
+                        left: tag.x * SCREEN_W - 7,
+                        top: tag.y * (SCREEN_W * 1.1) - 7,
+                      }}
+                      pointerEvents="box-none"
+                    >
+                      <NBTag
+                        label={tag.item?.name ?? 'Item'}
+                        price={tag.item?.purchasePrice}
+                      />
+                    </View>
+                  ))}
+              </Pressable>
             )}
           </View>
 
